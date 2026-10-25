@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import math
+import os
 import re
 from collections import defaultdict, deque
 from datetime import UTC, date, datetime
@@ -64,6 +65,7 @@ def _template_context(request: Request) -> dict[str, Any]:
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"), context_processors=[_template_context])
 templates.env.filters["status_label"] = status_label
+templates.env.globals["website_url"] = os.getenv("CLUB_WEBSITE_URL", "https://www.margateyachtclub.co.uk")
 
 
 def invoice_badge(invoice: Any) -> Markup:
@@ -259,7 +261,7 @@ def landing(request: Request, db: Session = Depends(get_db)) -> Response:
 
 @router.get("/login", response_class=HTMLResponse)
 def login_form(request: Request) -> Response:
-    return templates.TemplateResponse(request, "login.html", {"user": None, "nav": "", "step": "email", "next": request.query_params.get("next", "")})
+    return templates.TemplateResponse(request, "login.html", {"user": None, "nav": "", "step": "email", "next": request.query_params.get("next", ""), "staff": request.query_params.get("staff") == "1"})
 
 
 @router.post("/login", response_class=HTMLResponse)

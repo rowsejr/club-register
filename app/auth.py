@@ -90,23 +90,28 @@ def purge_sessions(db: Session) -> None:
         db.execute(delete(model).where(model.expires_at < cutoff), execution_options={"synchronize_session": False})
 
 
+def start_session(db: Session, email: str, role: Role) -> str:
+    """Sign someone in: returns the cookie value. Only the hash is stored."""
+    session_token, session_hash = issue_token()
+    db.add(SessionRecord(token_hash=session_hash, email=email.lower(), role=role, expires_at=expiry_after(SESSION_HOURS * 60)))
+    purge_sessions(db)
+    return session_token
+
+
 def exchange_token(db: Session, token: str) -> tuple[str, Role] | None:
     record = db.scalar(select(AuthMagicLink).where(AuthMagicLink.token_hash == hash_token(token)))
     if not record or record.consumed_at is not None or is_expired(record.expires_at):
         return None
-    session_token, session_hash = issue_token()
     record.consumed_at = now_utc()
-    db.add(
-        SessionRecord(
-            token_hash=session_hash,
-            email=record.email,
-            role=record.role,
-            expires_at=expiry_after(SESSION_HOURS * 60),
-        )
-    )
-    purge_sessions(db)
+    session_token = start_session(db, record.email, record.role)
     db.commit()
     return session_token, record.role
+
+
+def is_staff(db: Session, email: str) -> bool:
+    """Anyone with more than a member's own page: an administrator, a committee member, or a member wearing a hat."""
+    explicit = db.scalar(select(UserRole).where(func.lower(UserRole.email) == email.lower()))
+    return explicit is not None and (explicit.role != Role.MEMBER or bool((explicit.extra_roles or "").strip()))
 
 
 def load_session(db: Session, raw: str | None) -> tuple[SessionRecord | None, str]:

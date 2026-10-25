@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="/static/club.css">
 <script src="/static/htmx.min.js" defer></script>
 <script src="/static/ui.js" defer></script>
+{% block head %}{% endblock %}
 </head>
 <body{% if csrf %} hx-headers='{{ {"X-CSRF-Token": csrf}|tojson }}'{% endif %}>
 {% if demo %}<div class="alert info" role="note" style="margin:0;border-radius:0;text-align:center">Demo site: every person and amount here is made up. Nothing is emailed or charged.</div>{% endif %}
@@ -46,5 +47,6 @@
   {% elif section == "admin" %}{% include "_section_admin.html" %}{% endif %}
 {% endif %}
 {% block content %}{% endblock %}</main>
+<footer class="site-footer no-print"><a href="{{ website_url }}">Margate Yacht Club website</a> · <a href="/privacy">Privacy</a></footer>
 </body>
 </html>

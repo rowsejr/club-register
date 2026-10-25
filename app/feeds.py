@@ -71,8 +71,28 @@ def keys() -> dict[str, str]:
     return out
 
 
+def sign_parts(secret: str, *parts: str) -> str:
+    """HMAC-SHA256 of the parts joined by new lines, as lower-case hex. Every signed request to the office uses this."""
+    return hmac.new(secret.encode(), "\n".join(parts).encode(), hashlib.sha256).hexdigest()
+
+
 def sign(secret: str, name: str, client: str, ts: str, nonce: str) -> str:
-    return hmac.new(secret.encode(), f"{name}\n{client}\n{ts}\n{nonce}".encode(), hashlib.sha256).hexdigest()
+    return sign_parts(secret, name, client, ts, nonce)
+
+
+def fresh(ts: str, max_age: int, now: float | None = None) -> bool:
+    now = time.time() if now is None else now
+    return ts.isdigit() and abs(now - int(ts)) <= max_age
+
+
+def remember(db: Session, provider: str, nonce: str, what: str = "") -> None:
+    """Note a request id so the same signed request cannot be used twice. Ids are forgotten after a day."""
+    provider = provider[:20]
+    db.execute(delete(WebhookEvent).where(WebhookEvent.provider == provider, WebhookEvent.received_at < datetime.now(UTC) - timedelta(days=1)))
+    if not (8 <= len(nonce) <= 100) or db.scalar(select(WebhookEvent.id).where(WebhookEvent.provider == provider, WebhookEvent.event_id == nonce)):
+        raise FeedRefused(401, "this request has already been used")
+    db.add(WebhookEvent(provider=provider, event_id=nonce, outcome=what[:120] or None))
+    db.flush()
 
 
 def check(db: Session, name: str, client: str, ts: str, nonce: str, sig: str, now: float | None = None) -> None:
@@ -82,17 +102,11 @@ def check(db: Session, name: str, client: str, ts: str, nonce: str, sig: str, no
     secret = keys().get(client)
     if secret is None or client not in FEEDS[name][1]:
         raise FeedRefused(403, "this tool may not read this feed")
-    now = time.time() if now is None else now
-    if not ts.isdigit() or abs(now - int(ts)) > MAX_AGE_SECONDS:
+    if not fresh(ts, MAX_AGE_SECONDS, now):
         raise FeedRefused(401, "the request is too old (check the clock)")
-    if not (8 <= len(nonce) <= 100) or not hmac.compare_digest(sign(secret, name, client, ts, nonce), sig or ""):
+    if not hmac.compare_digest(sign(secret, name, client, ts, nonce), sig or ""):
         raise FeedRefused(401, "bad signature")
-    provider = f"feed:{client}"[:20]
-    db.execute(delete(WebhookEvent).where(WebhookEvent.provider.like("feed:%"), WebhookEvent.received_at < datetime.now(UTC) - timedelta(days=1)))
-    if db.scalar(select(WebhookEvent.id).where(WebhookEvent.provider == provider, WebhookEvent.event_id == nonce)):
-        raise FeedRefused(401, "this request has already been used")
-    db.add(WebhookEvent(provider=provider, event_id=nonce, outcome=name))
-    db.flush()
+    remember(db, f"feed:{client}", nonce, name)
 
 
 def _pounds(minor: int | None) -> float:

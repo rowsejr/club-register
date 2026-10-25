@@ -33,6 +33,7 @@ from app.ui.routes import LoginRequired, UiError, login_required_handler, ui_err
 from app.ui.routes import router as ui_router
 from app.ui.season_routes import router as season_ui_router
 from app.ui.training_routes import router as training_ui_router
+from app.ui.website_routes import router as website_ui_router
 
 logger = logging.getLogger("club")
 
@@ -47,7 +48,7 @@ app = FastAPI(title="Club office", lifespan=lifespan, docs_url="/docs" if is_dev
 
 for router in (
     office_ui_router, ui_router, cashbook_ui_router, season_ui_router, people360_ui_router, mailing_ui_router, job_ui_router, payment_ui_router, event_ui_router, admin_ui_router,
-    event_public_ui_router, berth_ui_router, report_ui_router, finance_ui_router, boat_ui_router, people_ui_router, public_ui_router, training_ui_router, feed_ui_router,
+    event_public_ui_router, berth_ui_router, report_ui_router, finance_ui_router, boat_ui_router, people_ui_router, public_ui_router, training_ui_router, feed_ui_router, website_ui_router,
 ):
     app.include_router(router)
 app.add_exception_handler(LoginRequired, login_required_handler)  # type: ignore[arg-type]
