@@ -92,9 +92,21 @@
     <label>Phone<input type="text" name="phone" value="{{ v.phone }}"></label>
   </div>
   <label>Address<textarea name="address" rows="3">{{ v.address }}</textarea></label>
-  <label>Date of birth<input type="date" name="birth_date" value="{{ v.birth_date }}"></label>
+  <div class="row">
+    <label>Date of birth<input type="date" name="birth_date" value="{{ v.birth_date }}"></label>
+    <label>Gender <span class="hint">(for the RYA count)</span><select name="gender"><option value="">Not given</option>{% for key, label in [("female", "Female"), ("male", "Male"), ("other", "Other")] %}<option value="{{ key }}" {{ "selected" if v.gender == key }}>{{ label }}</option>{% endfor %}</select></label>
+  </div>
+  <div class="row">
+    <label>Emergency contact<input type="text" name="emergency_name" value="{{ v.emergency_name }}"></label>
+    <label>Their phone<input type="tel" name="emergency_phone" value="{{ v.emergency_phone }}"></label>
+  </div>
   <label>Notes<textarea name="notes" rows="4">{{ v.notes }}</textarea></label>
-  <label class="check"><input type="checkbox" name="suppressed" value="1" {{ "checked" if v.suppressed }}> Suppress from mailings</label>
+  <fieldset><legend>Their choices</legend>
+    <label class="check"><input type="checkbox" name="suppressed" value="1" {{ "checked" if v.suppressed }}> Do not send them club emails</label>
+    <label class="check"><input type="checkbox" name="photo_consent" value="1" {{ "checked" if v.photo_consent }}> Photos may be used</label>
+    <label class="check"><input type="checkbox" name="directory_consent" value="1" {{ "checked" if v.directory_consent }}> Other members may see their phone and email</label>
+    {% if contact and contact.consents_updated_at %}<p class="hint">Last changed {{ contact.consents_updated_at|dmy }}{% if contact.consents_by %} by {{ contact.consents_by }}{% endif %}.</p>{% endif %}
+  </fieldset>
   <div class="actions"><button type="submit">Save</button><a class="btn secondary" href="/app/contacts">Back</a></div>
 </form>
 

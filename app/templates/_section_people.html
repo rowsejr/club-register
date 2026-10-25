@@ -1,0 +1,11 @@
+{% set here = request.url.path %}
+<nav class="subnav" aria-label="People">
+  <a href="/app/members" class="{{ 'active' if here.startswith('/app/members') }}">Members</a>
+  <a href="/app/new-members" class="{{ 'active' if here.startswith('/app/new-members') or here.startswith('/app/enquiries') or here.startswith('/app/applications') }}">New members</a>
+  <a href="/app/contacts" class="{{ 'active' if here.startswith('/app/contacts') or here.startswith('/app/lists') }}">Everyone</a>
+  <a href="/app/checks" class="{{ 'active' if here.startswith('/app/checks') or here.startswith('/app/people') }}">Checks</a>
+  {% if perms|can("members.write") or perms|can("boats.write") %}<a href="/app/requests" class="{{ 'active' if here.startswith('/app/requests') }}">Requests</a>{% endif %}
+  {% if perms|can("billing.run") %}<a href="/app/season" class="{{ 'active' if here.startswith('/app/season') }}">Renewals</a>{% endif %}
+  <a href="/app/mailings" class="{{ 'active' if here.startswith('/app/mailings') }}">Emails to members</a>
+  <a href="/app/census" class="{{ 'active' if here.startswith('/app/census') }}">RYA census</a>
+</nav>

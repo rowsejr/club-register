@@ -59,7 +59,7 @@ def test_the_season_page_lists_the_routine_and_the_plan(secretary, club) -> None
     assert page.status_code == 200
     for text in (f"Season {YEAR}", "1. Get the prices right", "2. Tell members it is time to renew", "3. Invoice the season", "4. Chase and tidy up", "Ann Sailor", "£223.00", "Boat park fees for 2027"):
         assert text in page.text, text
-    assert 'href="/app/season"' in secretary.get("/app").text  # in the main menu
+    assert 'href="/app/season"' in secretary.get("/app/members").text  # in the People menu
 
 
 def test_invoicing_insists_on_a_ticked_confirmation_and_a_selection(secretary, club) -> None:

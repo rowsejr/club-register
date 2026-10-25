@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}New members{% endblock %}
+{% block content %}
+<div class="toolbar"><h1 style="margin:0">New members</h1><span class="spacer"></span>
+  {% if perms|can("members.write") %}<a class="btn secondary" href="/app/enquiries/new">Note down an enquiry</a><a class="btn" href="/app/applications/new">Add a new member</a>{% endif %}</div>
+<p class="muted">Someone asks about joining, applies, is accepted and sent an invoice, then pays. Their membership starts when the money arrives.</p>
+<div class="steps">
+  <a class="card" href="#asked" style="text-decoration:none;color:inherit"><div class="step">1. Asked about joining</div><div class="metric {{ 'warn' if p.enquiries }}">{{ p.enquiries|length }}</div><div class="label">to answer</div></a>
+  <a class="card" href="#applied" style="text-decoration:none;color:inherit"><div class="step">2. Applied</div><div class="metric {{ 'warn' if p.to_decide }}">{{ p.to_decide|length }}</div><div class="label">to decide</div></a>
+  <a class="card" href="#invoiced" style="text-decoration:none;color:inherit"><div class="step">3. Accepted, invoice sent</div><div class="metric">{{ p.awaiting_payment|length }}</div><div class="label">waiting to pay</div></a>
+  <a class="card" href="#joined" style="text-decoration:none;color:inherit"><div class="step">4. Paid and joined</div><div class="metric">{{ p.joined|length }}</div><div class="label">in the last 60 days</div></a>
+</div>
+
+<h2 id="asked">1. Asked about joining</h2>
+<div class="table-wrap"><table><thead><tr><th>When</th><th>Name</th><th>About</th><th></th></tr></thead><tbody>
+{% for e in p.enquiries %}<tr><td>{{ e.created_at|dmy }}</td><td>{{ e.name }}</td><td style="white-space:normal">{{ (e.message or e.interest or "")[:90] }}</td><td><a class="btn secondary" href="/app/enquiries/{{ e.id }}">Answer</a></td></tr>
+{% else %}<tr><td colspan="4" class="muted">Nobody is waiting for an answer.</td></tr>{% endfor %}
+</tbody></table></div>
+
+<h2 id="applied">2. Applied: decide</h2>
+<div class="table-wrap"><table><thead><tr><th>When</th><th>Name</th><th>Email</th><th></th></tr></thead><tbody>
+{% for a in p.to_decide %}<tr><td>{{ a.submitted_at|dmy }}</td><td>{{ a.name }}</td><td>{{ a.email or "" }}</td><td><a class="btn" href="/app/applications/{{ a.id }}">Look and decide</a></td></tr>
+{% else %}<tr><td colspan="4" class="muted">No applications to decide.</td></tr>{% endfor %}
+</tbody></table></div>
+
+<h2 id="invoiced">3. Accepted: waiting for them to pay</h2>
+<div class="table-wrap"><table><thead><tr><th>Accepted</th><th>Name</th><th>Invoice</th><th></th></tr></thead><tbody>
+{% for a in p.awaiting_payment %}<tr><td>{{ a.decided_at|dmy }}</td><td>{{ a.name }}</td><td>{% if a.invoice_id %}<a href="/app/finance/invoices/{{ a.invoice_id }}">See the invoice</a>{% endif %}</td><td><a class="btn secondary" href="/app/applications/{{ a.id }}">Open</a></td></tr>
+{% else %}<tr><td colspan="4" class="muted">Nobody is waiting to pay.</td></tr>{% endfor %}
+</tbody></table></div>
+
+<h2 id="joined">4. Joined in the last 60 days</h2>
+<div class="table-wrap"><table><thead><tr><th>Joined</th><th>Name</th><th></th></tr></thead><tbody>
+{% for a in p.joined %}<tr><td>{{ a.decided_at|dmy }}</td><td>{{ a.name }}</td><td>{% if a.contact_id %}<a href="/app/contacts/{{ a.contact_id }}">Their page</a>{% endif %}</td></tr>
+{% else %}<tr><td colspan="3" class="muted">Nobody yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

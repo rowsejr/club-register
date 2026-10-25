@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Requests from members{% endblock %}
+{% block content %}
+<h1>Requests from members</h1>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<p class="muted">Members ask for these from their own page. When you have sorted one out, press <strong>Done</strong>; the member gets an email saying so.</p>
+{% for r, c in rows %}
+<div class="card" style="margin-bottom:.8rem">
+  <div class="toolbar" style="margin:0"><strong>{{ kinds[r.kind][0] }}</strong><span class="muted">{{ r.created_at|dmy }}</span><span class="spacer"></span>{% if c %}<a href="/app/contacts/{{ c.id }}">{{ c.name }}</a>{% endif %}</div>
+  <p style="white-space:pre-wrap">{{ r.details }}</p>
+  <form method="post" action="/app/requests/{{ r.id }}/close" class="toolbar" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="sr-only" for="outcome-{{ r.id }}">A note for the member (optional)</label>
+    <input id="outcome-{{ r.id }}" type="text" name="outcome" placeholder="A note for the member (optional)" style="flex:1;min-width:14rem">
+    <button type="submit" name="status" value="done">Done</button>
+    <button type="submit" name="status" value="declined" class="secondary">Not possible</button>
+  </form>
+</div>
+{% else %}<div class="all-done">No requests waiting.</div>{% endfor %}
+{% if done %}<h2>Recently done</h2>
+<ul>{% for r, c in done|reverse %}<li>{{ kinds[r.kind][0] }}: {{ c.name if c else "" }} <span class="muted">({{ r.handled_at|dmy }}, {{ r.handled_by }})</span></li>{% endfor %}</ul>{% endif %}
+{% endblock %}

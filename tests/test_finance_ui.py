@@ -245,4 +245,4 @@ def test_finance_screens_need_login_csrf_and_an_operator_role(admin: TestClient)
     member = _login("mem@example.com")
     assert member.get("/app/finance").status_code == 403
     assert member.get("/app/finance/invoices/1.pdf").status_code == 403
-    assert re.search(r"My account", member.get("/app").text)
+    assert re.search(r"My membership", member.get("/app").text)

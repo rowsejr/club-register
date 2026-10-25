@@ -57,6 +57,13 @@ def _phone(rng: random.Random) -> str:
     return f"07700 900{rng.randint(0, 999):03d}"
 
 
+def _first_name(rng: random.Random, firsts: list[str], last: str, taken: set[str]) -> str:
+    """A first name nobody else in the club has with this surname, so the checks page does not fill with made-up duplicates."""
+    first = rng.choice([f for f in firsts if f"{f} {last}" not in taken] or firsts)
+    taken.add(f"{first} {last}")
+    return first
+
+
 def _at(day: date, hour: int, minute: int = 0) -> datetime:
     return datetime.combine(day, time(hour, minute), tzinfo=LONDON).astimezone(UTC)
 
@@ -87,11 +94,13 @@ def build(db: Session, seed: int = 7, today: date | None = None) -> dict[str, in
     db.flush()
 
     used_emails: set[str] = set()
+    taken: set[str] = set()
     households: list[tuple[Contact, Member]] = []
     names = list(WEIGHTS)
     weights = [WEIGHTS[n] for n in names]
     for index in range(108):
-        first, last = rng.choice(FIRST), rng.choice(LAST)
+        last = rng.choice(LAST)
+        first = _first_name(rng, FIRST, last, taken)
         email = f"{first}.{last}.{index + 1}@example.org".lower()
         used_emails.add(email)
         plan = rng.choices(names, weights)[0]
@@ -110,17 +119,18 @@ def build(db: Session, seed: int = 7, today: date | None = None) -> dict[str, in
         found = re.search(r"(\d)\s*C\b", plan)
         kids = int(found.group(1)) if found else 0
         if partner:
-            p_first = rng.choice(FIRST)
+            p_first = _first_name(rng, FIRST, last, taken)
             p_email = f"{p_first}.{last}.{index + 1}p@example.org".lower()
             pc = Contact(name=f"{p_first} {last}", email=p_email, phone=_phone(rng), birth_date=date(rng.randint(1955, 2000), rng.randint(1, 12), rng.randint(1, 28)))
             pm = Member(name=pc.name, email=p_email, membership_type=plan, renewal_status=member.renewal_status, payment_status="paid", join_date=joined, expiry_date=period.ends_on, active=not lapsed)
             db.add_all([pc, pm])
             db.flush()
+            pm.membership_number = applications.next_membership_number(db)
             pc.member_id = pm.id
             db.add(ContactRelation(from_contact_id=contact.id, to_contact_id=pc.id, relation_type="partner"))
             counts["people"] += 1
         for _ in range(kids):
-            kc = Contact(name=f"{rng.choice(CHILDREN)} {last}", birth_date=date(year - rng.randint(6, 16), rng.randint(1, 12), rng.randint(1, 28)))
+            kc = Contact(name=f"{_first_name(rng, CHILDREN, last, taken)} {last}", birth_date=date(year - rng.randint(6, 16), rng.randint(1, 12), rng.randint(1, 28)))
             db.add(kc)
             db.flush()
             db.add(ContactRelation(from_contact_id=contact.id, to_contact_id=kc.id, relation_type="child"))

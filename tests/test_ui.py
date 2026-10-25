@@ -26,7 +26,7 @@ def test_unknown_email_gets_same_page_without_code() -> None:
 
 def test_login_dashboard_logout(admin: TestClient) -> None:
     dash = admin.get("/app")
-    assert dash.status_code == 200 and "Active members" in dash.text and "boss@example.com" in dash.text
+    assert dash.status_code == 200 and "What needs doing" in dash.text and "boss@example.com" in dash.text
     out = admin.post("/logout", data={"csrf": _csrf(admin)}, follow_redirects=False)
     assert out.status_code == 303
     assert admin.get("/app", follow_redirects=False).status_code == 303
@@ -115,7 +115,7 @@ def test_member_role_cannot_use_operator_ui(admin: TestClient) -> None:
     admin.post("/app/members", data={"csrf": token, "name": "Mem", "email": "mem@example.com"})
     member = _login("mem@example.com")
     assert member.get("/app/members").status_code == 403
-    assert "My account" in member.get("/app").text
+    assert "My membership" in member.get("/app").text
     assert member.get("/app/admin/users").status_code == 403
 
 

@@ -55,6 +55,7 @@ DEFAULT_SETTINGS = {
     "event_refund_cutoff_days": "7",
     "reply_to": "",
     "books_locked_until": "",
+    "census_age_bands": "0-7,8-11,12-15,16-17,18-24,25-34,35-44,45-54,55-64,65-120",
 }
 
 

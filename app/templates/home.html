@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<h1>What needs doing</h1>
+<form class="find" action="/app/contacts" method="get" role="search">
+  <label class="sr-only" for="find">Find a person</label>
+  <input id="find" type="search" name="q" placeholder="Find a person: type a name or email" autocomplete="off">
+  <button type="submit">Find</button>
+</form>
+{% for s in sections %}
+<h2>{{ s.title }}</h2>
+<ul class="todo">
+  {% for line in s.lines %}<li class="{{ 'urgent' if line.urgent }}"><span class="count">{{ line.count }}</span><span class="what">{{ line.text[:1]|upper }}{{ line.text[1:] }}</span>{% if line.link %}<a class="btn" href="{{ line.link }}">Open</a>{% endif %}</li>{% endfor %}
+</ul>
+{% else %}
+<div class="all-done">Nothing needs doing right now.</div>
+{% endfor %}
+<h2>Quick jobs</h2>
+<div class="quick">
+  {% if perms|can("members.write") %}<a class="btn secondary big" href="/app/applications/new">Add a new member</a>{% endif %}
+  {% if perms|can("finance.write") %}<a class="btn secondary big" href="/app/finance/new">Make an invoice</a><a class="btn secondary big" href="/app/finance/chase">Who owes money</a>{% endif %}
+  {% if perms|can("boats.write") %}<a class="btn secondary big" href="/app/boats/new">Add a boat</a>{% endif %}
+  {% if perms|can("events.write") %}<a class="btn secondary big" href="/app/events/new">Add an event</a>{% endif %}
+  <a class="btn secondary big" href="/app/me">My own membership</a>
+</div>
+{% endblock %}

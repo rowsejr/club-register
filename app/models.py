@@ -64,6 +64,13 @@ class Contact(Base):
     suppressed: Mapped[bool] = mapped_column(Boolean, default=False)
     phones_extra: Mapped[str | None] = mapped_column(Text, nullable=True)  # further numbers, one per line
     addresses_extra: Mapped[str | None] = mapped_column(Text, nullable=True)  # further addresses, one per line
+    gender: Mapped[str | None] = mapped_column(String(30), nullable=True)  # female | male | other | not_given (for the RYA return)
+    emergency_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    emergency_phone: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    photo_consent: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # None = not asked yet
+    directory_consent: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # may other members see their phone and email
+    consents_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    consents_by: Mapped[str | None] = mapped_column(String(255), nullable=True)  # who answered (a parent, for a junior)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -918,3 +925,33 @@ class WebhookEvent(Base):
     event_id: Mapped[str] = mapped_column(String(120), nullable=False)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     outcome: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+
+class MemberRequest(Base):
+    """Something a member asks for from their own page: change of membership, a boat park space, a new boat, a word with the Bosun."""
+
+    __tablename__ = "member_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    contact_id: Mapped[int] = mapped_column(ForeignKey("contacts.id", ondelete="CASCADE"), nullable=False)
+    member_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    kind: Mapped[str] = mapped_column(String(30), nullable=False)  # change_membership | boat_space | change_boat | bosun | other
+    details: Mapped[str] = mapped_column(Text, default="")
+    boat_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="open")  # open | done | declined
+    handled_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class ChaseNote(Base):
+    """A note on the chase list about someone who owes money: "rang 3 March, paying on Friday"."""
+
+    __tablename__ = "chase_notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    contact_id: Mapped[int] = mapped_column(ForeignKey("contacts.id", ondelete="CASCADE"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    author: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

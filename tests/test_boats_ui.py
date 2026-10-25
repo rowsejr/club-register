@@ -197,7 +197,7 @@ def test_harbourmaster_hat_runs_boats_but_not_the_money() -> None:
     code = re.search(r"<code>([^<]+)</code>", c.post("/login", data={"email": "bosun@example.com"}).text)
     c.cookies.set("club_session", c.post("/login/token", data={"token": code.group(1)}, follow_redirects=False).cookies["club_session"])
     nav = c.get("/app").text
-    assert 'href="/app/boats"' in nav and 'href="/app/finance"' in nav  # finance.read lets them see invoices
+    assert 'href="/app/boats"' in nav and 'href="/app/finance/chase"' in nav  # finance.read lets them see invoices
     for path in ("/app/boats", "/app/storage", "/app/storage/tariffs", "/app/storage/billing", "/app/boats/reports", "/app/boats/new"):
         assert c.get(path).status_code == 200, path
     token = _csrf(c, "/app/boats")

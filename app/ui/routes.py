@@ -7,7 +7,7 @@ import io
 import math
 import re
 from collections import defaultdict, deque
-from datetime import date, timedelta
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -24,11 +24,9 @@ from app import (
     applications,
     audit,
     finance,
-    membership,
     people,
     permissions,
     privacy,
-    reports,
 )
 from app.auth import (
     SESSION_COOKIE,
@@ -45,13 +43,10 @@ from app.db import SessionLocal, get_db
 from app.invoice_query import status_label
 from app.models import (
     AuditLog,
-    BankEntry,
     Contact,
-    Event,
     Invoice,
     Member,
     Membership,
-    MembershipRenewal,
     MembershipType,
     Role,
     SessionRecord,
@@ -302,42 +297,13 @@ def operator_redirect() -> Response:
 @router.get("/app", response_class=HTMLResponse)
 def dashboard(request: Request, session: SessionRecord = Depends(ui_session()), db: Session = Depends(get_db)) -> Response:
     if not permissions.is_operator(getattr(request.state, "perms", set())):
+        from app.office import REQUEST_KINDS
         from app.ui.people_routes import member_home_context
 
-        return templates.TemplateResponse(request, "portal.html", _ctx(session, "dashboard", msg=request.query_params.get("msg", ""), err=request.query_params.get("err", ""), **member_home_context(db, session)))
-    today = date.today()
-    unpaid = Invoice.status.in_(["issued", "part_paid"])
-    count = lambda stmt: db.scalar(select(func.count()).select_from(stmt.subquery())) or 0  # noqa: E731
-    queues = applications.queue_counts(db)
-    perms: set[str] = getattr(request.state, "perms", set())
-    month_start = today.replace(day=1)
-    cards: list[dict[str, Any]] = []
-    if permissions.allows(perms, "finance.read"):
-        positions = reports.bank_positions(db, month_start, today)
-        in_bank = sum((p.statement if p.statement is not None else p.closing) for p in positions)
-        owed = reports.debtors_as_at(db, today)
-        cards += [
-            {"label": "In the bank", "value": _gbp(in_bank), "href": "/app/finance/bank", "perm": "finance.read"},
-            {"label": "Received this month", "value": _gbp(reports.cash_summary(db, month_start, today).total_receipts), "href": "/app/finance/reports", "perm": "finance.read"},
-            {"label": "Owed to the club", "value": _gbp(sum(r.outstanding for r in owed)), "href": "/app/finance/reports/debtors", "perm": "finance.read", "warn": any(r.days_overdue > 30 for r in owed)},
-        ]
-    cards += [
-        {"label": "Open enquiries", "value": queues["enquiries"], "href": "/app/enquiries", "warn": queues["enquiries"] > 0, "perm": "members.read"},
-        {"label": "Applications to decide", "value": queues["applications"], "href": "/app/applications", "warn": queues["applications"] > 0, "perm": "members.read"},
-        {"label": "Approved, awaiting first payment", "value": queues["awaiting_payment"], "href": "/app/applications?tab=approved", "perm": "members.read"},
-        {"label": "Bank lines to match", "value": db.scalar(select(func.count()).select_from(BankEntry).where(BankEntry.status == "unmatched")) or 0, "href": "/app/finance/bank", "perm": "finance.read"},
-        {"label": "Draft invoices", "value": db.scalar(select(func.count()).select_from(Invoice).where(Invoice.status == "draft")) or 0, "href": "/app/finance?filter=draft", "perm": "finance.read"},
-        {"label": "Contacts", "value": db.scalar(select(func.count()).select_from(Contact)), "href": "/app/contacts", "perm": "members.read"},
-        {"label": "Active memberships", "value": membership.active_memberships(db), "href": "/app/members?status=active", "perm": "members.read"},
-        {"label": "People covered", "value": db.scalar(select(func.count()).select_from(Member).where(Member.active.is_(True))), "href": "/app/members?status=active", "perm": "members.read"},
-        {"label": "Lapsed or resigned", "value": db.scalar(select(func.count()).select_from(Member).where(Member.renewal_status.in_(["lapsed", "resigned"]))), "href": "/app/members?status=lapsed", "perm": "members.read"},
-        {"label": "Renewals awaiting confirmation", "value": db.scalar(select(func.count()).select_from(MembershipRenewal).where(MembershipRenewal.state != "confirmed")), "href": None, "perm": "members.read"},
-        {"label": "Overdue invoices", "value": count(select(Invoice.id).where(unpaid, Invoice.due_date < today)), "href": "/app/finance?filter=overdue", "warn": True, "perm": "finance.read"},
-        {"label": "Unpaid over 30 days late", "value": count(select(Invoice.id).where(unpaid, Invoice.due_date < today - timedelta(days=30))), "href": "/app/finance?filter=late30", "warn": True, "perm": "finance.read"},
-        {"label": "Events without notes", "value": db.scalar(select(func.count()).select_from(Event).where(Event.notes == "")), "href": "/app/events", "perm": "members.read"},
-    ]
-    cards = [c for c in cards if permissions.allows(perms, c["perm"])]
-    return templates.TemplateResponse(request, "dashboard.html", _ctx(session, "dashboard", cards=cards))
+        return templates.TemplateResponse(request, "portal.html", _ctx(session, "dashboard", msg=request.query_params.get("msg", ""), err=request.query_params.get("err", ""), kinds=REQUEST_KINDS, **member_home_context(db, session)))
+    from app.ui.office_routes import home_context
+
+    return templates.TemplateResponse(request, "home.html", _ctx(session, "dashboard", **home_context(db, session, getattr(request.state, "perms", set()))))
 
 
 # --- members -----------------------------------------------------------------
@@ -554,13 +520,19 @@ def contact_save(
     birth_date: str = Form(""),
     notes: str = Form(""),
     suppressed: str = Form(""),
+    gender: str = Form(""),
+    emergency_name: str = Form(""),
+    emergency_phone: str = Form(""),
+    photo_consent: str = Form(""),
+    directory_consent: str = Form(""),
     session: SessionRecord = Depends(ui_session(perm="members.write")),
     db: Session = Depends(get_db),
 ) -> Response:
     contact = db.get(Contact, contact_id) if contact_id else None
     if contact_id and not contact:
         raise UiError(404, "Contact not found")
-    values = {"name": name, "email": email, "phone": phone, "address": address, "birth_date": birth_date, "notes": notes, "suppressed": bool(suppressed)}
+    values = {"name": name, "email": email, "phone": phone, "address": address, "birth_date": birth_date, "notes": notes, "suppressed": bool(suppressed), "gender": gender,
+              "emergency_name": emergency_name, "emergency_phone": emergency_phone, "photo_consent": bool(photo_consent), "directory_consent": bool(directory_consent)}
     before = audit.snapshot(contact, audit.CONTACT_FIELDS) if contact else {}
     try:
         if not name.strip():
@@ -571,7 +543,13 @@ def contact_save(
             contact = Contact(name=name.strip())
             db.add(contact)
         contact.name, contact.email, contact.phone = name.strip(), clean_email, phone.strip() or None
-        contact.address, contact.birth_date, contact.notes, contact.suppressed = address.strip() or None, born, notes, bool(suppressed)
+        contact.address, contact.birth_date, contact.notes = address.strip() or None, born, notes
+        contact.gender = gender if gender in {"female", "male", "other"} else None
+        contact.emergency_name, contact.emergency_phone = emergency_name.strip()[:255] or None, emergency_phone.strip()[:80] or None
+        choices = (bool(suppressed), bool(photo_consent), bool(directory_consent))
+        if contact.id is None or choices != (bool(contact.suppressed), bool(contact.photo_consent), bool(contact.directory_consent)):
+            contact.consents_updated_at, contact.consents_by = datetime.now(UTC), f"{session.email} (on their behalf)"
+        contact.suppressed, contact.photo_consent, contact.directory_consent = choices
         db.flush()
         _audit(db, session, "contact.update" if contact_id else "contact.create", "contact", contact.id, via="ui", changes=audit.changes(before, audit.snapshot(contact, audit.CONTACT_FIELDS)) if before else {})
         db.commit()

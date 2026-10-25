@@ -1,0 +1,6 @@
+{% set here = request.url.path %}
+<nav class="subnav" aria-label="Admin">
+  <a href="/app/admin/users" class="{{ 'active' if here.startswith('/app/admin/users') }}">Who can do what</a>
+  <a href="/app/admin/jobs" class="{{ 'active' if here.startswith('/app/admin/jobs') }}">Automatic jobs</a>
+  <a href="/app/admin/audit" class="{{ 'active' if here.startswith('/app/admin/audit') }}">Audit log</a>
+</nav>

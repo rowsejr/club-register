@@ -22,6 +22,7 @@ from app.ui.event_routes import router as event_ui_router
 from app.ui.finance_routes import router as finance_ui_router
 from app.ui.job_routes import router as job_ui_router
 from app.ui.mailing_routes import router as mailing_ui_router
+from app.ui.office_routes import router as office_ui_router
 from app.ui.payment_routes import router as payment_ui_router
 from app.ui.people360_routes import router as people360_ui_router
 from app.ui.people_routes import router as people_ui_router
@@ -44,7 +45,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Club office", lifespan=lifespan, docs_url="/docs" if is_dev() else None, redoc_url=None, openapi_url="/openapi.json" if is_dev() else None)
 
 for router in (
-    ui_router, cashbook_ui_router, season_ui_router, people360_ui_router, mailing_ui_router, job_ui_router, payment_ui_router, event_ui_router, admin_ui_router,
+    office_ui_router, ui_router, cashbook_ui_router, season_ui_router, people360_ui_router, mailing_ui_router, job_ui_router, payment_ui_router, event_ui_router, admin_ui_router,
     event_public_ui_router, berth_ui_router, report_ui_router, finance_ui_router, boat_ui_router, people_ui_router, public_ui_router, training_ui_router,
 ):
     app.include_router(router)

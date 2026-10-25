@@ -1,0 +1,6 @@
+{% set here = request.url.path %}
+<nav class="subnav" aria-label="Events">
+  {% if perms|can("events.read") %}<a href="/app/events" class="{{ 'active' if here.startswith('/app/events') }}">Events and tickets</a>{% endif %}
+  {% if perms|can("training.read") %}<a href="/app/training" class="{{ 'active' if here == '/app/training' or here.startswith('/app/training/new') or here.startswith('/app/training/courses') }}">Courses</a>
+  <a href="/app/training/qualifications" class="{{ 'active' if here.startswith('/app/training/qualifications') }}">Qualifications</a>{% endif %}
+</nav>

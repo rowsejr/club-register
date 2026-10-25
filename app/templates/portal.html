@@ -1,40 +1,57 @@
 {% extends "base.html" %}
-{% block title %}My account{% endblock %}
+{% block title %}My membership{% endblock %}
 {% block content %}
-<h1>My account</h1>
+<h1>My membership</h1>
 {% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
 {% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
 {% if not member %}
   <div class="alert info">No membership is linked to {{ user }} yet. If you have applied, we will email you when it is approved. <a href="/membership">Membership options</a></div>
-  {% if contact %}<p><a class="btn secondary" href="/app/me/profile">My details</a></p>{% endif %}
+  {% if contact %}<p><a class="btn secondary big" href="/app/me/profile">My details</a></p>{% endif %}
 {% else %}
-<div class="cards" style="margin-bottom:1rem">
-  <div class="card"><div class="label">Member</div><strong>{{ member.name }}</strong><br><span class="muted">no. {{ member.membership_number or "—" }}</span></div>
-  <div class="card"><div class="label">Membership</div>{{ current.plan_name if current else member.membership_type }}<br>
-    <span class="badge {{ 'paid' if current and current.status == 'active' else 'draft' }}">{{ (current.status if current else member.renewal_status)|replace("_", " ") }}</span></div>
-  <div class="card"><div class="label">Runs until</div>{{ (current.ends_on if current else member.expiry_date)|dmy or "—" }}</div>
-  <div class="card"><div class="label">You owe</div><div class="metric {{ 'warn' if owing }}" style="font-size:1.4rem">{{ (owing or 0)|gbp }}</div></div>
+<div class="cards" style="margin-bottom:1.2rem">
+  <div class="card"><div class="label">Name</div><strong style="font-size:1.2rem">{{ member.name }}</strong><br><span class="muted">Member number {{ member.membership_number or "not given yet" }}</span></div>
+  <div class="card"><div class="label">Membership</div><strong>{{ current.plan_name if current else member.membership_type }}</strong><br>
+    {% set active = current and current.status == "active" %}<span class="badge {{ 'ok' if active else 'warn' }}">{{ "Paid up" if active else (current.status if current else member.renewal_status)|replace("_", " ")|capitalize }}</span>
+    {% if current %}<span class="muted"> until {{ current.ends_on|dmy }}</span>{% endif %}</div>
+  <div class="card"><div class="label">You owe</div><div class="metric {{ 'warn' if owing }}">{{ (owing or 0)|gbp }}</div>{% if owing %}<a href="#invoices">See how to pay</a>{% else %}<span class="muted">Nothing to pay. Thank you.</span>{% endif %}</div>
 </div>
 
 {% if waiting %}
-<div class="card" style="margin-bottom:1rem"><strong>Your renewal invoice is waiting for payment</strong>
-  <p>Invoice {{ waiting.reference }} for {{ waiting.amount_minor|gbp }}. <a href="/app/me/invoices/{{ waiting.id }}">See how to pay</a></p></div>
+<div class="card" style="margin-bottom:1rem;border-left:6px solid var(--accent)"><strong>Your renewal is waiting to be paid</strong>
+  <p>Invoice {{ waiting.reference }} for {{ waiting.amount_minor|gbp }}.</p><a class="btn big" href="/app/me/invoices/{{ waiting.id }}">Pay now</a></div>
 {% elif offer %}
-<div class="card" style="margin-bottom:1rem"><strong>Renew for {{ offer.period.name }}</strong>
+<div class="card" style="margin-bottom:1rem;border-left:6px solid var(--brand-2)"><strong>Renew for {{ offer.period.name }}</strong>
   {% if offer.reason %}<p class="muted">{{ offer.reason }}</p>
   {% else %}<p>{{ offer.mtype.name }}: <strong>{{ offer.fee_minor|gbp }}</strong></p>
-  <form method="post" action="/app/me/renew" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">Renew now</button> <span class="muted">You will get an invoice with the bank details to pay.</span></form>{% endif %}</div>
+  <form method="post" action="/app/me/renew" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="big">Renew now</button></form>{% endif %}</div>
 {% endif %}
 
-<h2>My invoices</h2>
+<h2>My things</h2>
+<div class="quick">
+  <a class="btn secondary big" href="/app/me/profile">My details and choices</a>
+  <a class="btn secondary big" href="/app/me/family">My family</a>
+  <a class="btn secondary big" href="/app/me/boats">My boats</a>
+  <a class="btn secondary big" href="/app/me/events">Events and tickets</a>
+  <a class="btn secondary big" href="/app/me/training">Courses</a>
+</div>
+
+<h2>Ask the club</h2>
+<form method="post" action="/app/me/requests" class="card form" style="max-width:none">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>What would you like?
+    <select name="kind" required><option value="">Choose one</option>{% for key, (label, role, perm) in kinds.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+  <label>Tell us more<textarea name="details" rows="3" required placeholder="For example: I would like to change to a family membership from next year."></textarea></label>
+  <div><button type="submit">Send</button> <span class="muted">The right volunteer is told straight away and will reply by email.</span></div>
+</form>
+
+<h2 id="invoices">My invoices</h2>
 <div class="table-wrap"><table><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="num">Total</th><th class="num">To pay</th><th></th></tr></thead><tbody>
-{% for i in invoices %}<tr><td>{{ i.reference }}{% if i.kind == "credit_note" %} <span class="muted">(credit)</span>{% endif %}</td><td>{{ i.issue_date|dmy }}</td><td><span class="badge {{ i.status }}">{{ i.status }}</span></td>
-<td class="num">{{ i.amount_minor|gbp }}</td><td class="num">{{ outstanding[i.id]|gbp if outstanding[i.id] else "" }}</td><td><a href="/app/me/invoices/{{ i.id }}">View</a> · <a href="/app/me/invoices/{{ i.id }}.pdf" target="_blank" rel="noopener">PDF</a></td></tr>
+{% for i in invoices %}<tr><td>{{ i.reference }}{% if i.kind == "credit_note" %} <span class="muted">(credit)</span>{% endif %}</td><td>{{ i.issue_date|dmy }}</td><td><span class="badge {{ i.status }}">{{ i.status|status_label }}</span></td>
+<td class="num">{{ i.amount_minor|gbp }}</td><td class="num">{{ outstanding[i.id]|gbp if outstanding[i.id] else "" }}</td><td>{% if outstanding[i.id] %}<a class="btn" href="/app/me/invoices/{{ i.id }}">Pay</a>{% else %}<a href="/app/me/invoices/{{ i.id }}">View</a>{% endif %} <a href="/app/me/invoices/{{ i.id }}.pdf" target="_blank" rel="noopener">PDF</a></td></tr>
 {% else %}<tr><td colspan="6" class="muted">No invoices yet.</td></tr>{% endfor %}
 </tbody></table></div>
 
-<h2>My details and privacy</h2>
-<p><a class="btn secondary" href="/app/me/training">Training</a> <a class="btn secondary" href="/app/me/family">My family</a> <a class="btn secondary" href="/app/me/boats">My boats</a> <a class="btn secondary" href="/app/me/events">Events and duties</a> <a class="btn secondary" href="/app/me/profile">Update my details</a> <a class="btn secondary" href="/app/me/export.json">Download my data</a></p>
+<p style="margin-top:1.5rem"><a href="/app/me/export.json">Download everything the club holds about me</a></p>
 {% if current and current.status == "active" %}
 <details style="margin-top:1rem"><summary>I do not want to renew</summary>
   <form method="post" action="/app/me/resign" class="form" style="margin-top:.6rem"><input type="hidden" name="csrf" value="{{ csrf }}">

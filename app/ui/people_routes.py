@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -11,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app import applications, finance, membership, payments, permissions, privacy
+from app import applications, audit, finance, membership, payments, permissions, privacy
 from app.db import get_db
 from app.models import (
     Application,
@@ -338,7 +339,10 @@ def me_profile(request: Request, msg: str = "", err: str = "", session: SessionR
 
 
 @router.post("/app/me/profile")
-def me_profile_save(phone: str = Form(""), address: str = Form(""), birth_date: str = Form(""), newsletters: str = Form(""), session: SessionRecord = ANY_SESSION, db: Session = Depends(get_db)) -> Response:
+def me_profile_save(
+    phone: str = Form(""), address: str = Form(""), birth_date: str = Form(""), newsletters: str = Form(""), gender: str = Form(""), emergency_name: str = Form(""),
+    emergency_phone: str = Form(""), photo_consent: str = Form(""), directory_consent: str = Form(""), session: SessionRecord = ANY_SESSION, db: Session = Depends(get_db),
+) -> Response:
     _, contact = _me(db, session)
     if contact is None:
         raise UiError(404, "No details are linked to this sign-in")
@@ -346,10 +350,15 @@ def me_profile_save(phone: str = Form(""), address: str = Form(""), birth_date: 
         born = _opt_date(birth_date)
     except ValueError as exc:
         return _go("/app/me/profile", err=str(exc))
-    old = {"phone": contact.phone, "address": contact.address, "birth_date": str(contact.birth_date or ""), "suppressed": contact.suppressed}
+    before = audit.snapshot(contact, audit.CONTACT_FIELDS)
     contact.phone, contact.address, contact.birth_date = phone.strip()[:80] or None, address.strip() or None, born
-    contact.suppressed = newsletters != "1"
-    _audit(db, session, "member.self_edit", "contact", contact.id, before=old, after={"phone": contact.phone, "address": contact.address, "birth_date": str(born or ""), "suppressed": contact.suppressed})
+    contact.gender = gender if gender in {"female", "male", "other"} else None
+    contact.emergency_name, contact.emergency_phone = emergency_name.strip()[:255] or None, emergency_phone.strip()[:80] or None
+    choices = (newsletters != "1", photo_consent == "1", directory_consent == "1")
+    if choices != (contact.suppressed, bool(contact.photo_consent), bool(contact.directory_consent)) or contact.consents_updated_at is None:
+        contact.consents_updated_at, contact.consents_by = datetime.now(UTC), session.email
+    contact.suppressed, contact.photo_consent, contact.directory_consent = choices
+    _audit(db, session, "member.self_edit", "contact", contact.id, changes=audit.changes(before, audit.snapshot(contact, audit.CONTACT_FIELDS)))
     db.commit()
     return _go("/app/me/profile", msg="Saved")
 

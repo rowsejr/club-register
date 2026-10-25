@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Checks{% endblock %}
+{% block content %}
+<h1>Checks</h1>
+<p class="muted">Small things that cause trouble later. Press <strong>Fix</strong> to go straight to the right page. The numbers should go down over time.</p>
+{% if total == 0 %}<div class="all-done">Everything checks out.</div>{% endif %}
+{% for i in issues if i.contacts or i.extra %}
+<h2 id="{{ i.key }}">{{ i.title }} <span class="muted">({{ i.contacts|length + i.extra|length }})</span></h2>
+<p class="muted">{{ i.help }}</p>
+{% if i.contacts %}<div class="table-wrap"><table><tbody>
+{% for c in i.contacts[:50] %}<tr><td>{{ c.name }}</td><td>{{ c.email or "" }}</td><td><a class="btn secondary" href="/app/contacts/{{ c.id }}#details">Fix</a></td></tr>{% endfor %}
+</tbody></table></div>{% if i.contacts|length > 50 %}<p class="muted">The first 50 of {{ i.contacts|length }}.</p>{% endif %}
+{% else %}<ul>{% for e in i.extra[:50] %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+{% endfor %}
+{% if insurance %}
+<h2 id="insurance">Boats whose insurance has run out or is not known <span class="muted">({{ insurance|length }})</span></h2>
+<p class="muted">Ask the owner for their certificate, then put the new expiry date on the boat.</p>
+<div class="table-wrap"><table><tbody>
+{% for b, state in insurance[:50] %}<tr><td>{{ b.name }} {% if b.sail_number %}<span class="muted">{{ b.sail_number }}</span>{% endif %}</td><td><span class="badge {{ 'bad' if state == 'expired' else 'warn' }}">{{ {"expired": "run out", "expiring": "running out soon", "unknown": "not known", "noted": "no date"}.get(state, state) }}</span></td><td><a class="btn secondary" href="/app/boats/{{ b.id }}">Fix</a></td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% endblock %}

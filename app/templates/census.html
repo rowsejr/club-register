@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}RYA census{% endblock %}
+{% block content %}
+<div class="toolbar"><h1 style="margin:0">RYA census</h1><span class="spacer"></span>
+  <form method="get" action="/app/census" class="toolbar" style="margin:0"><label>On <input type="date" name="on" value="{{ c.on.isoformat() }}"></label><button type="submit" class="secondary">Count</button></form>
+  <a class="btn secondary" href="/app/census.csv?on={{ c.on.isoformat() }}">Download</a></div>
+<p class="muted">Everyone a current membership covers on {{ c.on|dmy }}, including children in family memberships: <strong>{{ c.total }}</strong> people.
+Check the age bands against this year's RYA return; they can be changed under Money &gt; Settings.</p>
+<h2>By age and gender</h2>
+<div class="table-wrap"><table><thead><tr><th>Age</th>{% for key, label in genders %}<th class="num">{{ label }}</th>{% endfor %}<th class="num">Total</th></tr></thead><tbody>
+{% for band, counts in c.by_band.items() %}<tr><td>{{ band }}</td>{% for key, label in genders %}<td class="num">{{ counts[key] }}</td>{% endfor %}<td class="num"><strong>{{ counts.values()|sum }}</strong></td></tr>{% endfor %}
+</tbody></table></div>
+<h2>By membership category</h2>
+<div class="table-wrap"><table><thead><tr><th>Category</th>{% for band in c.by_band %}<th class="num">{{ band }}</th>{% endfor %}<th class="num">Total</th></tr></thead><tbody>
+{% for cat, counts in c.by_category.items()|sort %}<tr><td>{{ cat }}</td>{% for band in c.by_band %}<td class="num">{{ counts[band] }}</td>{% endfor %}<td class="num"><strong>{{ counts.values()|sum }}</strong></td></tr>{% endfor %}
+</tbody></table></div>
+{% if c.missing_dob %}<h2>Date of birth not known ({{ c.missing_dob|length }})</h2>
+<p class="muted">They are counted as "Age not known". Add their dates of birth to make the census right.</p>
+<div class="table-wrap"><table><tbody>{% for p in c.missing_dob[:60] %}<tr><td>{{ p.name }}</td><td><a class="btn secondary" href="/app/contacts/{{ p.id }}#details">Fix</a></td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if c.missing_gender %}<p class="muted">{{ c.missing_gender|length }} people have no gender recorded and are counted as "Not given".</p>{% endif %}
+{% endblock %}

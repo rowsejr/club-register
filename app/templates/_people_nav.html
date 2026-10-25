@@ -1,10 +1,9 @@
-<nav class="subnav" aria-label="New members">
+<nav class="subnav minor" aria-label="New members">
+  <a href="/app/new-members">All stages</a>
   <a href="/app/enquiries" class="{{ 'active' if sub == 'enquiries' }}">Enquiries</a>
   <a href="/app/applications" class="{{ 'active' if sub == 'applications' }}">Applications</a>
-  <a href="/app/enquiries/new" class="{{ 'active' if sub == 'log' }}">Log an enquiry</a>
-  <a href="/app/applications/new" class="{{ 'active' if sub == 'add' }}">Add a member</a>
-  <a href="/app/finance/billing">Renewals</a>
-  <a href="/membership" target="_blank" rel="noopener">Public join page</a>
+  <a href="/app/enquiries/new" class="{{ 'active' if sub == 'log' }}">Note down an enquiry</a>
+  <a href="/app/applications/new" class="{{ 'active' if sub == 'add' }}">Add a new member</a>
 </nav>
 {% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
 {% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}

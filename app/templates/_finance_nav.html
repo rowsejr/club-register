@@ -1,11 +1,2 @@
-<nav class="subnav" aria-label="Finance">
-  {% for key, href, label in [
-    ("invoices", "/app/finance", "Invoices"), ("new", "/app/finance/new", "New invoice"), ("debtors", "/app/finance/debtors", "Debtors"),
-    ("bank", "/app/finance/bank", "Bank"), ("reports", "/app/finance/reports", "Reports"), ("billing", "/app/finance/billing", "Membership billing"), ("reminders", "/app/finance/reminders", "Reminders"),
-    ("export", "/app/finance/export", "Export"), ("types", "/app/finance/types", "Fees"), ("items", "/app/finance/items", "Price list"), ("nominals", "/app/finance/nominals", "Nominal codes"), ("emails", "/app/finance/emails", "Email log"), ("settings", "/app/finance/settings", "Settings")] %}
-  <a href="{{ href }}" class="{{ 'active' if sub == key }}">{{ label }}</a>
-  {% endfor %}
-  {% if perms|can("finance.lock") %}<a href="/app/admin/year-end" class="{{ 'active' if sub == 'yearend' }}">Year end</a>{% endif %}
-</nav>
 {% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
 {% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}

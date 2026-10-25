@@ -168,7 +168,7 @@ def test_full_journey_from_enquiry_to_a_paying_member_who_signs_in(admin: TestCl
     # 5. she signs in and sees her membership and invoice, and can manage her own details
     ann = _login("ann@example.com")
     home = ann.get("/app")
-    assert "My account" in home.text and "Single Adult Sailing" in home.text and "active" in home.text and reference in home.text
+    assert "My membership" in home.text and "Single Adult Sailing" in home.text and "Paid up" in home.text and reference in home.text
     detail = ann.get(f"/app/me/invoices/{invoice_id}")
     assert detail.status_code == 200 and "Paid" in detail.text
     assert ann.get(f"/app/me/invoices/{invoice_id}.pdf").content.startswith(b"%PDF")
@@ -264,7 +264,8 @@ def test_dashboard_shows_the_work_queues(admin: TestClient) -> None:
         apps.submit_enquiry(db, name="B", email="b@example.com", verify=False)
         db.commit()
     dash = admin.get("/app")
-    assert "Open enquiries" in dash.text and "Applications to decide" in dash.text and "Bank lines to match" in dash.text and "Draft invoices" in dash.text
+    assert "Enquiries not yet answered" in dash.text and '<span class="count">2</span>' in dash.text
+    assert "Applications waiting for a decision" not in dash.text  # nothing to do there, so it is not shown
     assert "/app/enquiries" in dash.text
 
 

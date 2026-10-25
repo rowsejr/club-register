@@ -123,7 +123,7 @@ def test_committee_can_look_and_decide_but_not_change_records_or_money(invoice_i
 def test_treasurer_hat_runs_the_money_but_not_the_membership_register(invoice_id: int) -> None:
     treasurer = _signin("treasurer@example.com", Role.MEMBER, "treasurer")
     page = treasurer.get("/app")
-    assert "Finance" in page.text and "My account" not in page.text  # the hat turns on the operator view
+    assert "Money" in page.text and "What needs doing" in page.text  # the hat turns on the operator view
     assert _status(treasurer, "get", "/app/finance/settings") == 200 and _status(treasurer, "get", "/app/finance/bank") == 200
     token = _csrf(treasurer, "/app/finance")
     assert treasurer.post(f"/app/finance/invoices/{invoice_id}/payment", data={"csrf": token, "amount": "10", "method": "bank"}, follow_redirects=False).status_code == 303
@@ -138,11 +138,11 @@ def test_treasurer_hat_runs_the_money_but_not_the_membership_register(invoice_id
 def test_hats_stack_and_navigation_follows_permissions() -> None:
     both = _signin("both@example.com", Role.MEMBER, "treasurer,secretary")
     page = both.get("/app")
-    assert 'href="/app/finance"' in page.text and 'href="/app/members"' in page.text and 'href="/app/enquiries"' in page.text
+    assert 'href="/app/finance/chase"' in page.text and 'href="/app/members"' in page.text and 'href="/app/applications/new"' in page.text
     assert 'href="/app/admin/users"' not in page.text
     plain = _signin("plain@example.com", Role.MEMBER)
     nav = plain.get("/app").text
-    assert "My account" in nav and 'href="/app/finance"' not in nav and 'href="/app/members"' not in nav
+    assert "My membership" in nav and 'href="/app/finance/chase"' not in nav and 'href="/app/members"' not in nav
     admin = _signin("boss@example.com", Role.ADMIN)
     assert 'href="/app/admin/users"' in admin.get("/app").text
 

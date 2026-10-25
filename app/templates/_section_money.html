@@ -1,0 +1,11 @@
+{% set here = request.url.path %}
+<nav class="subnav" aria-label="Money">
+  <a href="/app/finance/chase" class="{{ 'active' if here.startswith('/app/finance/chase') or here.startswith('/app/finance/reminders') or here.startswith('/app/finance/debtors') }}">Who owes</a>
+  <a href="/app/finance" class="{{ 'active' if here == '/app/finance' or here.startswith('/app/finance/invoices') }}">Invoices</a>
+  {% if perms|can("finance.write") %}<a href="/app/finance/new" class="{{ 'active' if here.startswith('/app/finance/new') }}">Make an invoice</a>{% endif %}
+  <a href="/app/finance/bank" class="{{ 'active' if here.startswith('/app/finance/bank') }}">Bank</a>
+  <a href="/app/finance/reports" class="{{ 'active' if here.startswith('/app/finance/reports') or here.startswith('/app/finance/export') }}">Reports</a>
+  {% if perms|can("finance.admin") %}<a href="/app/finance/types" class="{{ 'active' if here.startswith('/app/finance/types') or here.startswith('/app/finance/items') }}">Prices</a>{% endif %}
+  {% if perms|can("finance.lock") %}<a href="/app/admin/year-end" class="{{ 'active' if here.startswith('/app/admin/year-end') }}">Year end</a>{% endif %}
+  {% if perms|can("finance.admin") %}<a href="/app/finance/settings" class="{{ 'active' if here.startswith('/app/finance/settings') or here.startswith('/app/finance/nominals') or here.startswith('/app/finance/emails') }}">Settings</a>{% endif %}
+</nav>

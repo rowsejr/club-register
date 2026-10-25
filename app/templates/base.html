@@ -9,38 +9,42 @@
 <script src="/static/ui.js" defer></script>
 </head>
 <body{% if csrf %} hx-headers='{{ {"X-CSRF-Token": csrf}|tojson }}'{% endif %}>
-{% if demo %}<div class="alert info" role="note" style="margin:0;border-radius:0;text-align:center">Demo site with fictional people and real-shaped figures. Nothing here is emailed or charged.</div>{% endif %}
+{% if demo %}<div class="alert info" role="note" style="margin:0;border-radius:0;text-align:center">Demo site: every person and amount here is made up. Nothing is emailed or charged.</div>{% endif %}
 <a class="skip-link" href="#main">Skip to the content</a>
+{% set section = {"dashboard": "home", "members": "people", "contacts": "people", "mail": "people", "people": "people", "season": "people", "finance": "money", "boats": "boats", "events": "events", "training": "events", "admin": "admin", "me": "me"}.get(nav, nav) %}
 <header class="topbar">
-  <a class="brand" href="/">⚓ MYC club office</a>
+  <a class="brand" href="{{ '/app' if user else '/' }}"><img src="/static/myc-logo.jpg" alt="Margate Yacht Club"><span class="office">club office</span></a>
   {% if user %}
   <nav aria-label="Main">
     {% if not perms %}
-    <a href="/app" class="{{ 'active' if nav == 'dashboard' }}">My account</a>
+    <a href="/app" class="{{ 'active' if section in ('home', 'me') }}">My membership</a>
+    <a href="/app/me/events" class="{{ 'active' if section == 'events' }}">Events</a>
+    <a href="/app/me/training">Courses</a>
     {% else %}
-    <a href="/app" class="{{ 'active' if nav == 'dashboard' }}">Dashboard</a>
-    {% if perms|can("members.read") %}<a href="/app/members" class="{{ 'active' if nav == 'members' }}">Members</a>
-    <a href="/app/contacts" class="{{ 'active' if nav == 'contacts' }}">Contacts</a>
-    <a href="/app/mailings" class="{{ 'active' if nav == 'mail' }}">Mailings</a>
-    <a href="/app/enquiries" class="{{ 'active' if nav == 'people' }}">New members</a>
-    <a href="/app/events" class="{{ 'active' if nav == 'events' }}">Events</a>{% endif %}
-    {% if perms|can("training.read") %}<a href="/app/training" class="{{ 'active' if nav == 'training' }}">Training</a>{% endif %}
-    {% if perms|can("boats.read") %}<a href="/app/boats" class="{{ 'active' if nav == 'boats' }}">Boats</a>{% endif %}
-    {% if perms|can("billing.run") %}<a href="/app/season" class="{{ 'active' if nav == 'season' }}">Season</a>{% endif %}
-    {% if perms|can("finance.read") %}<a href="/app/finance" class="{{ 'active' if nav == 'finance' }}">Finance</a>{% endif %}
-    {% if role == "Admin" %}<a href="/app/admin/users" class="{{ 'active' if nav == 'admin' }}">Users</a>
-    <a href="/app/admin/jobs">Jobs</a>
-    <a href="/app/admin/audit">Audit</a>{% endif %}
+    <a href="/app" class="{{ 'active' if section == 'home' }}">Home</a>
+    {% if perms|can("members.read") %}<a href="/app/members" class="{{ 'active' if section == 'people' }}">People</a>{% endif %}
+    {% if perms|can("finance.read") %}<a href="/app/finance/chase" class="{{ 'active' if section == 'money' }}">Money</a>{% endif %}
+    {% if perms|can("boats.read") %}<a href="/app/boats" class="{{ 'active' if section == 'boats' }}">Boats</a>{% endif %}
+    {% if perms|can("events.read") or perms|can("training.read") %}<a href="{{ '/app/events' if perms|can('events.read') else '/app/training' }}" class="{{ 'active' if section == 'events' }}">Events</a>{% endif %}
+    {% if role == "Admin" %}<a href="/app/admin/users" class="{{ 'active' if section == 'admin' }}">Admin</a>{% endif %}
     {% endif %}
   </nav>
   <div class="who">
-    <span>{{ user }} · {{ role }}</span>
+    {% if perms %}<a href="/app/me">My membership</a>{% endif %}
+    <span>{{ user }}</span>
     <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" type="submit">Sign out</button></form>
   </div>
   {% else %}
-  <nav aria-label="Main"><a href="/membership">Membership</a><a href="/join-us">Enquire</a><a href="/courses">Courses</a><a href="/whats-on">What's on</a><a href="/join">Join online</a><a href="/login">Sign in</a></nav>
+  <nav aria-label="Main"><a href="/membership">Membership</a><a href="/join-us">Ask a question</a><a href="/courses">Courses</a><a href="/whats-on">What's on</a><a href="/login">Sign in</a></nav>
   {% endif %}
 </header>
-<main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
+<main id="main" tabindex="-1">
+{% if user and perms %}
+  {% if section == "people" %}{% include "_section_people.html" %}
+  {% elif section == "money" %}{% include "_section_money.html" %}
+  {% elif section == "events" %}{% include "_section_events.html" %}
+  {% elif section == "admin" %}{% include "_section_admin.html" %}{% endif %}
+{% endif %}
+{% block content %}{% endblock %}</main>
 </body>
 </html>
