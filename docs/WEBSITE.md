@@ -165,7 +165,7 @@ The office's tests (`tests/test_website.py`, `tests/test_feeds.py`) check the sa
 
 ## 6. Looking like one site
 
-The office uses the website's font (Quattrocento Sans), its navy and red, and the club burgee in the header, with
+The office uses the website's font (Quattrocento Sans), its navy and red, and the club logo in the header, with
 large text and buttons. Pages a visitor reaches from the website (booking a ticket, joining, a course) have the same
 header, and every office page links back to the website. If the website's colours change, they are set once at the
 top of `app/static/club.css`.
