@@ -1,10 +1,11 @@
 {% from "_pager.html" import render_pager %}
 <div class="table-wrap"><table>
-<thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Renewal</th><th>Expires</th><th>Status</th></tr></thead>
+<thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Until</th><th>Status</th><th>Money</th></tr></thead>
 <tbody>
 {% for m in rows %}
-<tr><td><a href="/app/members/{{ m.id }}">{{ m.name }}</a></td><td>{{ m.email }}</td><td>{{ m.membership_type }}</td><td>{{ m.renewal_status }}</td><td>{{ m.expiry_date|dmy }}</td>
-<td><span class="badge {{ 'active' if m.active else 'inactive' }}">{{ 'active' if m.active else 'inactive' }}</span></td></tr>
+<tr><td><a href="/app/members/{{ m.id }}">{{ m.name }}</a></td><td>{{ m.email }}</td><td>{{ m.membership_type }}</td><td>{{ m.expiry_date|dmy }}</td>
+<td><span class="badge {{ 'active' if m.active else 'inactive' }}">{{ 'active' if m.active else m.renewal_status or 'inactive' }}</span></td>
+<td>{% set ms = money[m.id] if money else none %}{% if ms %}<span class="badge {{ ms.css }}" style="white-space:normal">{{ ms.words }}</span>{% endif %}</td></tr>
 {% else %}<tr><td colspan="6" class="muted">No members match.</td></tr>{% endfor %}
 </tbody></table></div>
 {{ render_pager(pager, "/app/members", f.as_params(), "#results") }}

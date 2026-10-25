@@ -43,7 +43,7 @@
 {% for r in table %}{% set i = r.invoice %}
 <tr><td><input type="checkbox" name="invoice" value="{{ i.id }}" class="pick-row" aria-label="Tick invoice {{ i.reference }}"></td>
 <td><a href="/app/finance/invoices/{{ i.id }}">{{ i.reference }}</a>{% if i.kind == "credit_note" %} <span class="muted">(credit)</span>{% endif %}{% if i.tags %} <span class="muted" title="Tags">· {{ i.tags }}</span>{% endif %}</td>
-<td>{{ i.issue_date|dmy }}</td><td>{{ r.name }}</td><td><span class="badge {{ i.status }}">{{ i.status|status_label }}</span></td>
+<td>{{ i.issue_date|dmy }}</td><td>{{ r.name }}</td><td>{{ i|invoice_badge }}</td>
 <td class="num">{{ i.amount_minor|gbp }}</td><td class="num">{{ r.outstanding|gbp if r.outstanding else "" }}</td>
 <td class="{{ 'overdue' if r.outstanding and i.due_date and i.due_date < today else '' }}">{{ i.due_date|dmy }}</td><td class="muted">{{ r.reminded|dmy if r.reminded else "" }}</td></tr>
 {% else %}<tr><td colspan="9" class="muted">No invoices match.</td></tr>{% endfor %}

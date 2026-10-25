@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app import finance, payments, ratelimit
 from app.db import get_db
 from app.models import Contact, OnlinePayment, PaymentMandate, SessionRecord
-from app.ui.people_routes import _own_invoice
+from app.ui.people_routes import _me, _own_invoice
 from app.ui.routes import UiError, _ctx, templates, ui_session
 
 router = APIRouter(include_in_schema=False)
@@ -34,6 +34,34 @@ def start_payment(invoice_id: int, request: Request, method: str = Form(...), se
         return RedirectResponse(f"/app/me/invoices/{invoice_id}?err={str(exc)[:200]}", status_code=303)
     del payment
     return RedirectResponse(url, status_code=303)
+
+
+@router.post("/app/me/direct-debit")
+def start_direct_debit(request: Request, session: SessionRecord = Depends(ANY), db: Session = Depends(get_db)) -> Response:
+    _, contact = _me(db, session)
+    if contact is None:
+        raise UiError(404, "No membership is linked to this sign-in")
+    try:
+        url = payments.start_direct_debit(db, contact, base_url=_base(request))
+        db.commit()
+    except payments.PaymentError as exc:
+        db.rollback()
+        return RedirectResponse(f"/app?err={str(exc)[:200]}", status_code=303)
+    return RedirectResponse(url, status_code=303)
+
+
+@router.post("/app/me/direct-debit/stop")
+def stop_direct_debit(session: SessionRecord = Depends(ANY), db: Session = Depends(get_db)) -> Response:
+    _, contact = _me(db, session)
+    if contact is None:
+        raise UiError(404, "No membership is linked to this sign-in")
+    try:
+        payments.stop_direct_debit(db, contact, session.email)
+        db.commit()
+    except payments.PaymentError as exc:
+        db.rollback()
+        return RedirectResponse(f"/app?err={str(exc)[:200]}", status_code=303)
+    return RedirectResponse("/app?msg=Your+Direct+Debit+has+been+stopped.+Nothing+more+will+be+collected", status_code=303)
 
 
 @router.get("/pay/{token}", response_class=HTMLResponse)

@@ -36,7 +36,7 @@ from app.models import (
 OPEN = ("issued", "part_paid")
 MEMBER_VISIBLE = ("issued", "part_paid", "paid", "written_off")  # members never see drafts, voids or cancelled invoices
 TERMINAL = ("paid", "void", "written_off", "cancelled")
-PAYMENT_METHODS = ("bank", "paypal", "gocardless", "stripe", "sumup", "cash", "cheque", "card", "credit_note", "other")
+PAYMENT_METHODS = ("bank", "paypal", "gocardless", "stripe", "sumup", "cash", "cheque", "card", "credit_note", "refund", "other")
 DEFAULT_TERMS_DAYS = 30
 DEFAULT_SETTINGS = {
     "club_name": "Margate Yacht Club",
@@ -54,6 +54,11 @@ DEFAULT_SETTINGS = {
     "event_hold_days": "3",
     "event_refund_cutoff_days": "7",
     "reply_to": "",
+    "reply_to_membership": "",
+    "reply_to_treasurer": "",
+    "reply_to_events": "",
+    "reply_to_bosun": "",
+    "direct_debit_auto_collect": "1",
     "books_locked_until": "",
     "census_age_bands": "0-7,8-11,12-15,16-17,18-24,25-34,35-44,45-54,55-64,65-120",
 }
@@ -85,6 +90,14 @@ def save_settings(db: Session, values: dict[str, str]) -> None:
             db.add(AppSetting(key=key, value=value.strip()))
         else:
             row.value = value.strip()
+
+
+REPLY_TOPICS = {"membership": "Membership secretary", "treasurer": "Treasurer", "events": "Events and courses", "bosun": "Bosun and boat park"}
+
+
+def reply_to(db: Session, topic: str) -> str | None:
+    """Where replies to an email about this topic should go: the topic's own address, else the general one, else none."""
+    return get_setting(db, f"reply_to_{topic}") or get_setting(db, "reply_to") or None
 
 
 def locked_until(db: Session) -> date | None:
@@ -434,6 +447,22 @@ def record_payment(
     refresh_status(db, invoice)
     _audit(db, actor, "invoice.payment", invoice, amount=amount_minor, method=method, reference=reference)
     return payment
+
+
+def record_refund(db: Session, invoice: Invoice, *, amount_minor: int, reference: str, actor: str, reason: str = "") -> PaymentTransaction:
+    """Money given back (from the card or Direct Debit provider's dashboard). Recorded as a negative payment, so the
+    invoice shows as owed again until the treasurer adds a credit note or the money comes back."""
+    if amount_minor <= 0:
+        raise FinanceError("A refund must be greater than zero")
+    if amount_minor > paid_total(db, invoice.id):
+        raise FinanceError("A refund cannot be more than was paid")
+    assert_unlocked(db, date.today(), "a refund")
+    row = PaymentTransaction(invoice_id=invoice.id, amount_minor=-amount_minor, payment_method="refund", bank_reference=reference, status="received", received_at=datetime.now(UTC), recorded_by=actor)
+    db.add(row)
+    db.flush()
+    refresh_status(db, invoice)
+    _audit(db, actor, "invoice.refund", invoice, amount=amount_minor, reference=reference, reason=reason)
+    return row
 
 
 def reverse_payment(db: Session, payment: PaymentTransaction, actor: str, reason: str) -> None:

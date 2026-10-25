@@ -456,7 +456,7 @@ def send_insurance_reminders(db: Session, boat_ids: list[int], actor: str, today
             related_type="insurance_reminder",
             related_id=boat.id,
             actor=actor,
-            reply_to=finance.get_setting(db, "reply_to") or None,
+            reply_to=finance.reply_to(db, "bosun"),
         )
         (result["skipped"] if record.status == "failed" else result["sent"]).append(boat.name)
     return result

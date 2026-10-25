@@ -183,3 +183,23 @@ def test_staff_also_reach_their_own_membership(club) -> None:
     secretary = login("sec@example.org", Role.COMMITTEE, hats="secretary")
     page = secretary.get("/app/me")
     assert page.status_code == 200 and "Sue Secretary" in page.text and "Ask the club" in page.text
+
+
+def test_everyone_can_see_at_a_glance_who_has_paid(club) -> None:
+    with SessionLocal() as db:
+        contact = db.get(Contact, club["contact_id"])
+        assert office.money_status(db, contact).words == "Paid up"
+        later = finance.create_invoice(db, contact_id=contact.id, lines=[{"description": "Subs", "amount_minor": 10800, "nominal_code": "0101"}])
+        finance.issue(db, later, "t", terms=30)
+        due = later.due_date
+        assert office.money_status(db, contact).words == f"Owes £108.00 (due {due.day} {due:%b})"
+        late = finance.create_invoice(db, contact_id=contact.id, lines=[{"description": "Boat park", "amount_minor": 4000, "nominal_code": "0101"}])
+        finance.issue(db, late, "t", issue_date=date.today() - timedelta(days=45), terms=30)
+        status = office.money_status(db, contact)
+        assert (status.words, status.css, status.owed) == ("Overdue £40.00", "bad", 14800)
+        db.commit()
+        late_id = late.id
+    staff = login("sec@example.org", Role.COMMITTEE, hats="secretary,treasurer")
+    assert "Overdue £40.00" in staff.get("/app/members").text and "Overdue £40.00" in staff.get(f"/app/contacts/{club['contact_id']}").text
+    assert '<span class="badge bad">Overdue</span>' in staff.get(f"/app/finance/invoices/{late_id}").text
+    assert '<span class="badge bad">Overdue</span>' in login("ann@example.org").get("/app").text  # the member sees it too

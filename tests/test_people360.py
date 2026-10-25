@@ -192,7 +192,7 @@ def test_the_contact_page_shows_the_whole_person_and_links_households(secretary,
     linked = secretary.post(f"/app/contacts/{folk['ann']}/household", data={"csrf": token, "other_id": folk["bob"], "relation": "partner"}, follow_redirects=True)
     assert "Linked to Bob Rower (partner)" in linked.text
     page = secretary.get(f"/app/contacts/{folk['ann']}")
-    for text in ("Tags and lists", "Household", "Bob Rower", "Boats and spaces", "Training", "Invoices", "Emails sent to them", "Owes the club", "Details"):
+    for text in ("Tags and lists", "Household", "Bob Rower", "Boats and spaces", "Training", "Invoices", "Emails sent to them", "Paid up", "Details"):
         assert text in page.text, text
     assert "Ann Sailor" in secretary.get(f"/app/contacts/{folk['bob']}").text  # the link shows from both sides
     assert "no contact number 9999" in secretary.post(f"/app/contacts/{folk['ann']}/household", data={"csrf": token, "other_id": 9999, "relation": "partner"}, follow_redirects=True).text

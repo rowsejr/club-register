@@ -17,7 +17,7 @@
   {% if perms|can("finance.write") %}<a class="btn" href="/app/finance/new?contact_id={{ contact.id }}">New invoice</a>{% endif %}
 </div>
 <div class="cards" style="margin:.8rem 0">
-  <div class="card"><div class="label">Owes the club</div><div class="metric {{ 'warn' if p.balance }}">{{ p.balance|gbp }}</div></div>
+  <div class="card"><div class="label">Money</div><div class="metric {{ money.css }}" style="font-size:1.35rem">{{ money.words }}</div>{% if money.direct_debit == "collecting" %}<span class="muted">Being collected by Direct Debit</span>{% elif money.direct_debit %}<span class="muted">Pays by Direct Debit</span>{% endif %}</div>
   <div class="card"><div class="label">Paid to date</div><div class="metric">{{ p.paid_total|gbp }}</div></div>
   <div class="card"><div class="label">Memberships</div><div class="metric">{{ p.memberships|length }}</div></div>
   <div class="card"><div class="label">Boats</div><div class="metric">{{ p.boats|length }}</div></div>

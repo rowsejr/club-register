@@ -58,7 +58,11 @@ def send_invoice(db: Session, invoice: Invoice, actor: str, reminder: bool = Fal
         if block and invoice.status in finance.OPEN:
             parts += ["", block]
     online = payments.methods_for(db, invoice)
-    if online:
+    debit = payments.active_mandate(db, contact.id) if invoice.status in finance.OPEN and invoice.kind != "credit_note" else None
+    if debit is not None and not reminder:
+        when = invoice.due_date.strftime("%d %B %Y") if invoice.due_date else "its due date"
+        parts += ["", f"You pay the club by Direct Debit, so this will be collected from your bank account on or soon after {when}. You do not need to do anything."]
+    elif online:
         parts += ["", f"You can also pay online by {' or '.join(m.label for m in online)} (Direct Debit costs the club least, so please choose it if you can): {payments.pay_link(invoice, db)}"]
     parts += ["", "If you have already paid, thank you, and please ignore this message.", "", club]
     pdf = render_invoice_pdf(db, invoice)
@@ -71,7 +75,7 @@ def send_invoice(db: Session, invoice: Invoice, actor: str, reminder: bool = Fal
         related_type="invoice_reminder" if reminder else "invoice",
         related_id=invoice.id,
         actor=actor,
-        reply_to=settings["reply_to"] or None,
+        reply_to=finance.reply_to(db, "treasurer"),
     )
     return record
 
@@ -91,7 +95,7 @@ def reminder_candidates(db: Session, today: date | None = None, min_days_overdue
             continue
         days = (today - due).days
         contact = _contact_for(db, invoice)
-        if days < min_days_overdue or contact is None:
+        if days < min_days_overdue or contact is None or payments.being_collected(db, invoice.id):
             continue
         last = recent.get(invoice.id)
         last_day = last.date() if last else None
@@ -142,7 +146,7 @@ def send_receipt(db: Session, invoice: Invoice) -> None:
         related_type="invoice_receipt",
         related_id=invoice.id,
         actor="system",
-        reply_to=settings["reply_to"] or None,
+        reply_to=finance.reply_to(db, "treasurer"),
     )
 
 

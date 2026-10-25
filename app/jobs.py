@@ -17,7 +17,18 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import boats, digests, events, finance, invoice_comms, mailer, membership, season, training
+from app import (
+    boats,
+    digests,
+    events,
+    finance,
+    invoice_comms,
+    mailer,
+    membership,
+    payments,
+    season,
+    training,
+)
 from app.models import JobRun, OutboundEmail, Qualification
 
 ACTOR = "scheduler"
@@ -32,6 +43,14 @@ class Job:
 
 
 # --------------------------------------------------------------------------- the jobs. Each returns a summary; dry_run changes nothing.
+
+
+def direct_debit_collections(db: Session, today: date, dry_run: bool) -> dict:
+    """Collect invoices that are due from people who pay by Direct Debit. Each invoice is only ever asked for once."""
+    if dry_run:
+        return {"would_collect": [c.invoice.reference for c in payments.collectable(db, today)]}
+    result = payments.collect_due(db, today)
+    return {"collecting": len(result["collecting"]), "failed": result["failed"]}
 
 
 def overdue_reminders(db: Session, today: date, dry_run: bool) -> dict:
@@ -128,6 +147,7 @@ def nightly_backup(db: Session, today: date, dry_run: bool) -> dict:
 JOBS: dict[str, Job] = {
     j.name: j
     for j in (
+        Job("direct_debit_collections", "Collect invoices that are due from people who pay by Direct Debit", "daily", direct_debit_collections),
         Job("overdue_reminders", "Remind people about overdue invoices", "daily", overdue_reminders),
         Job("renewal_notices", "Tell members it is time to renew", "daily", renewal_notices),
         Job("insurance_reminders", "Ask boat owners to update their insurance", "weekly", insurance_reminders),

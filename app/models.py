@@ -907,6 +907,7 @@ class OnlinePayment(Base):
     method: Mapped[str] = mapped_column(String(20), nullable=False)  # direct_debit | card
     amount_minor: Mapped[int] = mapped_column(Integer, nullable=False)
     external_id: Mapped[str | None] = mapped_column(String(120), nullable=True)  # the provider's payment / session id
+    provider_payment_id: Mapped[str | None] = mapped_column(String(120), nullable=True)  # Stripe's id for the money itself, to match refunds
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | confirmed | failed | cancelled
     token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

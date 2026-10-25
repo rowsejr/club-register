@@ -37,6 +37,7 @@ pytest
 ruff check .                 # do not run "ruff format": the code is laid out by hand
 mypy app
 python tools/scan.py         # no forbidden words and no personal data anywhere in the repository
+node --test "sheet/tests/*.test.js"
 ```
 
 Install the scan as a pre-commit hook with `git config core.hooksPath tools/hooks`.
@@ -49,5 +50,5 @@ Install the scan as a pre-commit hook with `git config core.hooksPath tools/hook
 - [docs/WEBSITE.md](docs/WEBSITE.md): how the club website and the office work together
 - [docs/SQLITE-DECISION.md](docs/SQLITE-DECISION.md): why one SQLite file
 
-`sheet/` holds a small Google Apps Script project that keeps a read-only copy of key lists in a Google Sheet for the
-committee.
+[sheet/](sheet/README.md) is a short Google Apps Script that keeps a read-only copy of key lists (who owes, payments,
+members without contact details, bookings, the RYA census) in a Google Sheet for the committee.

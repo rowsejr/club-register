@@ -285,7 +285,9 @@ def member_home_context(db: Session, session: SessionRecord) -> dict:
     offer = None if waiting else membership.renewal_offer(db, member)
     current = membership.latest_membership(db, member.id)
     owing = sum(finance.outstanding(db, i) for i in invoices if (i.kind or "invoice") == "invoice")
-    return {"member": member, "contact": contact, "invoices": invoices, "offer": offer, "waiting": waiting, "current": current, "owing": owing, "settings": finance.all_settings(db), "outstanding": {i.id: finance.outstanding(db, i) for i in invoices}}
+    debit = payments.active_mandate(db, contact.id) if contact is not None else None
+    return {"member": member, "contact": contact, "invoices": invoices, "offer": offer, "waiting": waiting, "current": current, "owing": owing, "settings": finance.all_settings(db),
+            "outstanding": {i.id: finance.outstanding(db, i) for i in invoices}, "debit": debit, "debit_offered": contact is not None and payments.direct_debit_provider() is not None}
 
 
 @router.post("/app/me/renew")

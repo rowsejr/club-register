@@ -54,13 +54,19 @@ def _invoice(db, email="ann@example.org", amount=10800, name="Ann Sailor"):
 
 @pytest.fixture
 def live(monkeypatch):
-    """Both providers configured, as in production."""
+    """Both providers configured, as in production. Direct Debit goes through Stripe unless the club chooses GoCardless."""
     monkeypatch.setenv("CLUB_ENV", "production")
     for key, value in {
         "CLUB_ONLINE_PAYMENTS": "live", "CLUB_GOCARDLESS_TOKEN": "gc-token", "CLUB_GOCARDLESS_ENV": "sandbox", "CLUB_GOCARDLESS_WEBHOOK_SECRET": "gc-secret",
         "CLUB_STRIPE_SECRET_KEY": "sk_test_x", "CLUB_STRIPE_WEBHOOK_SECRET": "whsec_x", "CLUB_BASE_URL": "https://myc.example.org",
     }.items():
         monkeypatch.setenv(key, value)
+
+
+@pytest.fixture
+def gc(live, monkeypatch):
+    """The club has chosen GoCardless for Direct Debit."""
+    monkeypatch.setenv("CLUB_DIRECT_DEBIT", "gocardless")
 
 
 class FakeNetwork:
@@ -91,9 +97,14 @@ def test_online_payment_is_off_unless_configured_and_sandbox_only_in_dev_or_demo
     assert payments.mode() == "live" and not payments.gocardless_ready() and not payments.stripe_ready()  # no keys yet
 
 
-def test_direct_debit_is_offered_first_and_only_for_payable_invoices(db, live) -> None:
+def test_direct_debit_is_offered_first_and_only_for_payable_invoices(db, live, monkeypatch) -> None:
     invoice = _invoice(db)
+    assert [(m.key, m.provider) for m in payments.methods_for(db, invoice)] == [("direct_debit", "stripe"), ("card", "stripe")]
+    monkeypatch.setenv("CLUB_DIRECT_DEBIT", "gocardless")
     assert [(m.key, m.provider) for m in payments.methods_for(db, invoice)] == [("direct_debit", "gocardless"), ("card", "stripe")]
+    monkeypatch.setenv("CLUB_DIRECT_DEBIT", "off")
+    assert [m.key for m in payments.methods_for(db, invoice)] == ["card"]
+    monkeypatch.delenv("CLUB_DIRECT_DEBIT")
     credit = finance.credit_note(db, invoice, amount_minor=500, reason="x", actor="t")
     assert payments.methods_for(db, credit) == []
     finance.record_payment(db, invoice, amount_minor=invoice.amount_minor - 500, method="bank")
@@ -104,7 +115,10 @@ def test_direct_debit_is_offered_first_and_only_for_payable_invoices(db, live) -
 
 def test_only_the_configured_provider_is_offered(db, live, monkeypatch) -> None:
     monkeypatch.delenv("CLUB_STRIPE_SECRET_KEY")
-    assert [m.key for m in payments.methods_for(db, _invoice(db))] == ["direct_debit"]
+    invoice = _invoice(db)
+    assert payments.methods_for(db, invoice) == []  # Stripe does both, and has no key
+    monkeypatch.setenv("CLUB_DIRECT_DEBIT", "gocardless")
+    assert [m.key for m in payments.methods_for(db, invoice)] == ["direct_debit"]
 
 
 # --------------------------------------------------------------------------- Stripe
@@ -177,7 +191,7 @@ def _gc_signature(body: bytes, key="gc-secret"):
     return {"Webhook-Signature": hmac.new(key.encode(), body, hashlib.sha256).hexdigest()}
 
 
-def test_first_direct_debit_sets_up_a_mandate_then_collects_the_invoice(db, live, monkeypatch) -> None:
+def test_first_direct_debit_sets_up_a_mandate_then_collects_the_invoice(db, gc, monkeypatch) -> None:
     invoice = _invoice(db)
     net = FakeNetwork(monkeypatch, [{"billing_requests": {"id": "BRQ1"}}, {"billing_request_flows": {"authorisation_url": "https://pay.gocardless.com/flow/BRF1"}}])
     payment, url = payments.start(db, invoice, "direct_debit", base_url="https://myc.example.org")
@@ -208,7 +222,7 @@ def test_first_direct_debit_sets_up_a_mandate_then_collects_the_invoice(db, live
     assert len(db.scalars(select(PaymentTransaction).where(PaymentTransaction.invoice_id == invoice.id)).all()) == 1
 
 
-def test_with_a_live_mandate_the_next_invoice_is_collected_straight_away(db, live, monkeypatch) -> None:
+def test_with_a_live_mandate_the_next_invoice_is_collected_straight_away(db, gc, monkeypatch) -> None:
     first = _invoice(db)
     db.add(PaymentMandate(contact_id=first.contact_id, mandate_id="MD9", status="active"))
     db.commit()
@@ -219,7 +233,7 @@ def test_with_a_live_mandate_the_next_invoice_is_collected_straight_away(db, liv
     assert json.loads(net.calls[0]["body"])["payments"]["amount"] == 5000
 
 
-def test_failed_direct_debits_and_cancelled_mandates_are_recorded(db, live, monkeypatch) -> None:
+def test_failed_direct_debits_and_cancelled_mandates_are_recorded(db, gc, monkeypatch) -> None:
     invoice = _invoice(db)
     db.add(PaymentMandate(contact_id=invoice.contact_id, mandate_id="MD5", status="active"))
     db.commit()
@@ -234,7 +248,7 @@ def test_failed_direct_debits_and_cancelled_mandates_are_recorded(db, live, monk
     assert db.scalar(select(PaymentMandate.status)) == "cancelled" and db.get(Invoice, invoice.id).status == "issued"
 
 
-def test_a_webhook_with_a_bad_gocardless_signature_is_refused(db, live) -> None:
+def test_a_webhook_with_a_bad_gocardless_signature_is_refused(db, gc) -> None:
     body = json.dumps({"events": []}).encode()
     assert TestClient(app).post("/webhooks/gocardless", content=body, headers={"Webhook-Signature": "nope"}).status_code == 400
     assert TestClient(app).post("/webhooks/gocardless", content=body).status_code == 400
@@ -325,7 +339,7 @@ def test_a_member_pays_in_the_demo_and_the_books_show_it(db, demo) -> None:
     assert paid.status_code == 303
     db.expire_all()
     assert db.get(Invoice, invoice.id).status == "paid"
-    assert db.scalar(select(PaymentTransaction.payment_method).where(PaymentTransaction.invoice_id == invoice.id)) == "gocardless"
+    assert db.scalar(select(PaymentTransaction.payment_method).where(PaymentTransaction.invoice_id == invoice.id)) == "stripe"  # Stripe collects Direct Debits
     assert "Paid. Thank you." in ann.get(f"/app/me/invoices/{invoice.id}").text
     again = anonymous.post(f"/pay/{token}", follow_redirects=False)  # pressing it twice does not pay twice
     assert again.status_code == 303 and len(db.scalars(select(PaymentTransaction).where(PaymentTransaction.invoice_id == invoice.id)).all()) == 1

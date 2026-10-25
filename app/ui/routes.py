@@ -16,6 +16,7 @@ from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -63,6 +64,17 @@ def _template_context(request: Request) -> dict[str, Any]:
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"), context_processors=[_template_context])
 templates.env.filters["status_label"] = status_label
+
+
+def invoice_badge(invoice: Any) -> Markup:
+    """An invoice's status as a coloured label in words. Unpaid invoices past their due date say Overdue."""
+    status = invoice.status or ""
+    if status in ("issued", "part_paid") and invoice.due_date and invoice.due_date < date.today() and (invoice.kind or "invoice") == "invoice":
+        return Markup('<span class="badge bad">Overdue</span>')
+    return Markup('<span class="badge {}">{}</span>').format(status, status_label(status))
+
+
+templates.env.filters["invoice_badge"] = invoice_badge
 PAGE_SIZE = 25
 OPERATORS = ("Admin", "Committee")
 
@@ -322,7 +334,10 @@ def members_list(
     db: Session = Depends(get_db),
 ) -> Response:
     rows, pager = _page(db, members_statement(f), page)
-    ctx = _ctx(session, "members", rows=rows, pager=pager, f=f, ch=people_choices(db), views=people.views_for(db, "members"))
+    from app import office
+
+    money = {m.id: office.money_status(db, db.scalar(select(Contact).where(Contact.member_id == m.id))) for m in rows}
+    ctx = _ctx(session, "members", rows=rows, pager=pager, f=f, ch=people_choices(db), views=people.views_for(db, "members"), money=money)
     template = "_members_table.html" if _is_htmx(request) else "members_list.html"
     return templates.TemplateResponse(request, template, ctx, headers={"Vary": "HX-Request"})
 
@@ -501,10 +516,13 @@ def contact_detail(contact_id: int, request: Request, saved: str = "", err: str 
     if not contact:
         raise UiError(404, "Contact not found")
     person = people.person360(db, contact)
+    from app import office
+
     return templates.TemplateResponse(
         request,
         "contact_form.html",
-        _ctx(session, "contacts", contact=contact, v=_contact_values(contact), saved=bool(saved), err=err, msg=msg, p=person, known_tags=people.all_tags(db), all_lists=[lst for lst, _ in people.lists_with_counts(db)]),
+        _ctx(session, "contacts", contact=contact, v=_contact_values(contact), saved=bool(saved), err=err, msg=msg, p=person, known_tags=people.all_tags(db), all_lists=[lst for lst, _ in people.lists_with_counts(db)],
+             money=office.money_status(db, contact)),
     )
 
 

@@ -28,3 +28,5 @@ jobs:
         run: python -m app.cli init-db
       - name: Tests
         run: pytest -q
+      - name: Sheet tests
+        run: node --test "sheet/tests/*.test.js"

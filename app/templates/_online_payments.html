@@ -4,7 +4,7 @@
 {% else %}
 <p class="muted">{{ "Demo mode: payments are simulated." if mode == "sandbox" else "Live." }} {% if methods %}Members can pay by {{ methods|map(attribute="label")|join(" or ") }}. Direct Debit is offered first because it costs the club least.{% endif %}</p>
 {% if methods %}<p>Link to send: <code>{{ link }}</code> <span class="muted">(signs them in, then shows how to pay)</span></p>{% endif %}
-{% if mandate %}<p class="muted">Has an active Direct Debit mandate: a Direct Debit payment is collected without asking them again.</p>{% endif %}
+{% if mandate %}<p class="muted">Pays by Direct Debit ({{ mandate.provider }}): this invoice is collected on its due date without asking them again.</p>{% endif %}
 {% if attempts %}<div class="table-wrap"><table><thead><tr><th>Started</th><th>How</th><th>Provider</th><th class="num">Amount</th><th>Status</th><th>Note</th></tr></thead><tbody>
 {% for a in attempts %}<tr><td>{{ a.created_at|dmy }}</td><td>{{ "Direct Debit" if a.method == "direct_debit" else "Card" }}</td><td>{{ a.provider }}</td><td class="num">{{ a.amount_minor|gbp }}</td><td><span class="badge {{ 'paid' if a.status == 'confirmed' else ('cancelled' if a.status == 'failed' else 'draft') }}">{{ a.status }}</span></td><td style="white-space:normal">{{ a.failure or "" }}</td></tr>{% endfor %}
 </tbody></table></div>{% endif %}

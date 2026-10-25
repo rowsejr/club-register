@@ -3,6 +3,7 @@
 {% block content %}
 <h1>Finance</h1>
 {% include "_finance_nav.html" %}
+<p class="quick"><a class="btn secondary" href="/app/finance/emails">Email log: every email the office has sent</a> <a class="btn secondary" href="/app/finance/nominals">Nominal codes</a></p>
 <h2>Invoice settings</h2>
 <form method="post" action="/app/finance/settings" class="form" style="max-width:620px">
   <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -19,7 +20,14 @@
   <label>Lapse a renewal that is still unpaid after (days overdue)<input type="number" name="lapse_after_days" min="0" max="365" value="{{ s.lapse_after_days }}"></label>
   <label>Season invoices
     <select name="season_invoice_mode"><option value="combined" {{ "selected" if s.season_invoice_mode == "combined" }}>One invoice per payer: membership, boat park and extras together</option><option value="separate" {{ "selected" if s.season_invoice_mode == "separate" }}>Separate invoices for membership, boat park and extras</option></select></label>
-  <label>Reply-to address for invoice emails<input type="email" name="reply_to" value="{{ s.reply_to }}"></label>
+  <h2>Email replies</h2>
+  <p class="muted">Emails go out from the club office address. When someone presses Reply, it goes to the address for that subject (or the general one if that is blank).</p>
+  <label>General reply address<input type="email" name="reply_to" value="{{ s.reply_to }}" placeholder="e.g. office@margateyachtclub.co.uk"></label>
+  {% for key, label in [("membership", "Membership (enquiries, applications, renewals)"), ("treasurer", "Invoices, reminders and receipts"), ("events", "Events and courses"), ("bosun", "Boats and the boat park")] %}
+  <label>{{ label }}<input type="email" name="reply_to_{{ key }}" value="{{ s['reply_to_' ~ key] }}"></label>{% endfor %}
+  <h2>Direct Debit</h2>
+  <label>Collect invoices from people who pay by Direct Debit
+    <select name="direct_debit_auto_collect"><option value="1" {{ "selected" if s.direct_debit_auto_collect == "1" }}>Yes, on the due date, every night</option><option value="0" {{ "selected" if s.direct_debit_auto_collect != "1" }}>No, only when they press Pay</option></select></label>
   <button type="submit">Save settings</button>
 </form>
 {% endblock %}

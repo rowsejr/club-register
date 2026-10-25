@@ -316,7 +316,7 @@ def send_notices(db: Session, year: int, actor: str, member_ids: list[int] | Non
             related_type=_notice_type(year),
             related_id=candidate.contact.id,
             actor=actor,
-            reply_to=settings["reply_to"] or None,
+            reply_to=finance.reply_to(db, "membership"),
         )
         (result["skipped"] if record.status == "failed" else result["sent"]).append(name if record.status != "failed" else f"{name}: the email failed")
     return result

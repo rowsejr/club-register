@@ -329,7 +329,7 @@ def request_info(db: Session, application: Application, actor: str, note: str) -
             related_type="application",
             related_id=application.id,
             actor=actor,
-            reply_to=finance.get_setting(db, "reply_to") or None,
+            reply_to=finance.reply_to(db, "membership"),
         )
     _audit(db, actor, "application.info_requested", "application", application.id)
 
@@ -452,7 +452,7 @@ def _send_approval(db: Session, application: Application, contact: Contact, invo
         related_type="application",
         related_id=application.id,
         actor=actor,
-        reply_to=settings["reply_to"] or None,
+        reply_to=finance.reply_to(db, "membership"),
     )
 
 
@@ -509,7 +509,7 @@ def _activate(db: Session, application: Application, actor: str) -> None:
             related_type="application",
             related_id=application.id,
             actor=actor,
-            reply_to=finance.get_setting(db, "reply_to") or None,
+            reply_to=finance.reply_to(db, "membership"),
         )
 
 

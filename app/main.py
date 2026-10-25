@@ -19,6 +19,7 @@ from app.ui.boat_routes import router as boat_ui_router
 from app.ui.cashbook_routes import router as cashbook_ui_router
 from app.ui.event_public_routes import router as event_public_ui_router
 from app.ui.event_routes import router as event_ui_router
+from app.ui.feed_routes import router as feed_ui_router
 from app.ui.finance_routes import router as finance_ui_router
 from app.ui.job_routes import router as job_ui_router
 from app.ui.mailing_routes import router as mailing_ui_router
@@ -46,7 +47,7 @@ app = FastAPI(title="Club office", lifespan=lifespan, docs_url="/docs" if is_dev
 
 for router in (
     office_ui_router, ui_router, cashbook_ui_router, season_ui_router, people360_ui_router, mailing_ui_router, job_ui_router, payment_ui_router, event_ui_router, admin_ui_router,
-    event_public_ui_router, berth_ui_router, report_ui_router, finance_ui_router, boat_ui_router, people_ui_router, public_ui_router, training_ui_router,
+    event_public_ui_router, berth_ui_router, report_ui_router, finance_ui_router, boat_ui_router, people_ui_router, public_ui_router, training_ui_router, feed_ui_router,
 ):
     app.include_router(router)
 app.add_exception_handler(LoginRequired, login_required_handler)  # type: ignore[arg-type]

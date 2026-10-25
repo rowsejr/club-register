@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import applications, digests, finance, mailer, people
+from app import applications, digests, finance, mailer, payments, people
 from app.models import (
     Application,
     AuditLog,
@@ -114,7 +114,7 @@ def create_request(db: Session, contact: Contact, kind: str, details: str, *, me
     club = finance.get_setting(db, "club_name")
     for email in _role_emails(db, role):
         mailer.send_email(db, to=email, subject=f"{club}: {contact.name} asks: {label.lower()}", body=f"{contact.name} has asked: {label}.\n\n{details}\n\nSee it in the club office under Home.",
-                          related_type="member_request", related_id=request.id, actor="system")
+                          related_type="member_request", related_id=request.id, actor="system", reply_to=contact.email or None)
     db.add(AuditLog(actor_email=contact.email or "member", actor_role="member", action="request.create", target_type="member_request", target_id=str(request.id), details={"kind": kind}))
     return request
 
@@ -138,7 +138,8 @@ def close_request(db: Session, request: MemberRequest, status: str, outcome: str
         label = REQUEST_KINDS[request.kind][0]
         word = "done" if status == "done" else "not possible this time"
         body = f"Hello {contact.name.split()[0]},\n\nYou asked: {label}. That is {word}." + (f"\n\n{request.outcome}" if request.outcome else "") + f"\n\n{finance.get_setting(db, 'club_name')}"
-        mailer.send_email(db, to=contact.email, subject=f"Your request: {label.lower()}", body=body, related_type="member_request", related_id=request.id, actor=actor)
+        topic = "bosun" if REQUEST_KINDS[request.kind][1] == "bosun" else "membership"
+        mailer.send_email(db, to=contact.email, subject=f"Your request: {label.lower()}", body=body, related_type="member_request", related_id=request.id, actor=actor, reply_to=finance.reply_to(db, topic))
     db.add(AuditLog(actor_email=actor, actor_role="user", action=f"request.{status}", target_type="member_request", target_id=str(request.id), details={"outcome": request.outcome or ""}))
 
 
@@ -154,6 +155,7 @@ class Debtor:
     days_overdue: int
     last_chased: date | None
     note: ChaseNote | None
+    direct_debit: str = ""  # "" | "set up" | "collecting"
 
 
 def _payer(db: Session, invoice: Invoice) -> Contact | None:
@@ -188,9 +190,41 @@ def chase_list(db: Session, today: date | None = None) -> list[Debtor]:
         dues = [i.due_date for i, _ in rows if i.due_date]
         oldest = min(dues) if dues else None
         last = max((chased[i.id] for i, _ in rows if i.id in chased), default=None)
+        debit = "collecting" if any(payments.being_collected(db, i.id) for i, _ in rows) else ("set up" if payments.active_mandate(db, cid) else "")
         out.append(Debtor(contacts[cid], sorted(rows, key=lambda r: r[0].due_date or today), sum(o for _, o in rows), oldest, max(0, (today - oldest).days) if oldest else 0,
-                          last.date() if last else None, notes.get(cid)))
+                          last.date() if last else None, notes.get(cid), debit))
     return sorted(out, key=lambda d: (-d.days_overdue, -d.owed, d.contact.name))
+
+
+@dataclass
+class MoneyStatus:
+    """Where someone stands with the club, in words anyone can read."""
+
+    words: str  # "Paid up" | "Owes £20.00 (due 1 Feb)" | "Overdue £20.00"
+    css: str  # ok | warn | bad, for the colour
+    owed: int = 0
+    overdue: int = 0
+    direct_debit: str = ""  # "" | "set up" | "collecting"
+
+
+def money_status(db: Session, contact: Contact | None, today: date | None = None) -> MoneyStatus:
+    """Paid up, owes (and when it is due), or overdue: shown on the person's page and in the members list."""
+    if contact is None:
+        return MoneyStatus("No invoices", "")
+    today = today or date.today()
+    invoices = db.scalars(select(Invoice).where(Invoice.status.in_(finance.OPEN), func.coalesce(Invoice.kind, "invoice") == "invoice",
+                                                (Invoice.contact_id == contact.id) | ((Invoice.contact_id.is_(None)) & (Invoice.member_id == contact.member_id) & (Invoice.member_id.is_not(None))))).all()
+    rows = [(i, finance.outstanding(db, i)) for i in invoices]
+    rows = [(i, o) for i, o in rows if o > 0]
+    owed = sum(o for _, o in rows)
+    overdue = sum(o for i, o in rows if i.due_date and i.due_date < today)
+    debit = "collecting" if any(payments.being_collected(db, i.id) for i, _ in rows) else ("set up" if payments.active_mandate(db, contact.id) else "")
+    if not owed:
+        return MoneyStatus("Paid up", "ok", direct_debit=debit)
+    if overdue:
+        return MoneyStatus(f"Overdue £{overdue / 100:,.2f}", "bad", owed, overdue, debit)
+    due = min((i.due_date for i, _ in rows if i.due_date), default=None)
+    return MoneyStatus(f"Owes £{owed / 100:,.2f}" + (f" (due {due.day} {due:%b})" if due else ""), "warn", owed, 0, debit)
 
 
 def add_chase_note(db: Session, contact: Contact, body: str, author: str) -> ChaseNote:

@@ -240,7 +240,7 @@ def _first(contact: Contact) -> str:
 
 def _tell(db: Session, contact: Contact, subject: str, body: str, event: Event) -> None:
     if contact.email and not contact.suppressed:
-        mailer.send_email(db, to=contact.email, subject=subject, body=body, related_type="event", related_id=event.id, actor="system")
+        mailer.send_email(db, to=contact.email, subject=subject, body=body, related_type="event", related_id=event.id, actor="system", reply_to=finance.reply_to(db, "events"))
 
 
 def _invoice_for(db: Session, event: Event, ttype: TicketType, tickets: list[EventTicket], payer: Contact, actor: str) -> Invoice:

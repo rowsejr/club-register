@@ -196,7 +196,7 @@ def _invoice_for(db: Session, course: TrainingCourse, booking: TrainingBooking, 
 def _notify(db: Session, contact: Contact | None, subject: str, body: str, booking: TrainingBooking, actor: str) -> None:
     if contact is None or not contact.email or contact.suppressed:
         return
-    mailer.send_email(db, to=contact.email, subject=subject, body=body, related_type="training_booking", related_id=booking.id, actor=actor, reply_to=finance.get_setting(db, "reply_to") or None)
+    mailer.send_email(db, to=contact.email, subject=subject, body=body, related_type="training_booking", related_id=booking.id, actor=actor, reply_to=finance.reply_to(db, "events"))
 
 
 def _place(db: Session, course: TrainingCourse, booking: TrainingBooking, attendee: Contact, payer: Contact, actor: str) -> None:

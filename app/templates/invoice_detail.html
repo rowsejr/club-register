@@ -5,7 +5,7 @@
 {% include "_finance_nav.html" %}
 <div class="toolbar">
   <h2 style="margin:0">{{ "Credit note" if invoice.kind == "credit_note" else "Invoice" }} {{ invoice.reference if invoice.status != "draft" else "(draft)" }}
-    <span class="badge {{ invoice.status }}">{{ invoice.status|status_label }}</span></h2>
+    {{ invoice|invoice_badge }}</h2>
   <span class="spacer"></span>
   {% if invoice.status == "draft" and perms|can("finance.write") %}<a class="btn" href="/app/finance/invoices/{{ invoice.id }}/edit">Edit draft</a>{% endif %}
   {% if invoice.kind != "credit_note" and perms|can("finance.write") %}<form method="post" action="/app/finance/invoices/{{ invoice.id }}/duplicate" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit" title="Start a new draft with the same lines">Duplicate</button></form>{% endif %}

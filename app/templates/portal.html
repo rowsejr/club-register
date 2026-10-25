@@ -16,6 +16,16 @@
   <div class="card"><div class="label">You owe</div><div class="metric {{ 'warn' if owing }}">{{ (owing or 0)|gbp }}</div>{% if owing %}<a href="#invoices">See how to pay</a>{% else %}<span class="muted">Nothing to pay. Thank you.</span>{% endif %}</div>
 </div>
 
+{% if debit %}
+<div class="card" style="margin-bottom:1rem;border-left:6px solid var(--ok)"><strong>You pay by Direct Debit</strong>
+  <p>Your invoices are collected from your bank account on their due date. You get an email before each one.</p>
+  <form method="post" action="/app/me/direct-debit/stop" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="secondary" data-confirm="Stop your Direct Debit? You will then need to pay each invoice yourself.">Stop my Direct Debit</button></form></div>
+{% elif debit_offered %}
+<div class="card" style="margin-bottom:1rem;border-left:6px solid var(--brand-2)"><strong>Pay by Direct Debit</strong>
+  <p>Set it up once and your renewal is collected for you on its due date, with an email before each one. It costs the club much less than a card payment.</p>
+  <form method="post" action="/app/me/direct-debit" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">Set up Direct Debit</button></form></div>
+{% endif %}
+
 {% if waiting %}
 <div class="card" style="margin-bottom:1rem;border-left:6px solid var(--accent)"><strong>Your renewal is waiting to be paid</strong>
   <p>Invoice {{ waiting.reference }} for {{ waiting.amount_minor|gbp }}.</p><a class="btn big" href="/app/me/invoices/{{ waiting.id }}">Pay now</a></div>
@@ -46,7 +56,7 @@
 
 <h2 id="invoices">My invoices</h2>
 <div class="table-wrap"><table><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="num">Total</th><th class="num">To pay</th><th></th></tr></thead><tbody>
-{% for i in invoices %}<tr><td>{{ i.reference }}{% if i.kind == "credit_note" %} <span class="muted">(credit)</span>{% endif %}</td><td>{{ i.issue_date|dmy }}</td><td><span class="badge {{ i.status }}">{{ i.status|status_label }}</span></td>
+{% for i in invoices %}<tr><td>{{ i.reference }}{% if i.kind == "credit_note" %} <span class="muted">(credit)</span>{% endif %}</td><td>{{ i.issue_date|dmy }}</td><td>{{ i|invoice_badge }}</td>
 <td class="num">{{ i.amount_minor|gbp }}</td><td class="num">{{ outstanding[i.id]|gbp if outstanding[i.id] else "" }}</td><td>{% if outstanding[i.id] %}<a class="btn" href="/app/me/invoices/{{ i.id }}">Pay</a>{% else %}<a href="/app/me/invoices/{{ i.id }}">View</a>{% endif %} <a href="/app/me/invoices/{{ i.id }}.pdf" target="_blank" rel="noopener">PDF</a></td></tr>
 {% else %}<tr><td colspan="6" class="muted">No invoices yet.</td></tr>{% endfor %}
 </tbody></table></div>
