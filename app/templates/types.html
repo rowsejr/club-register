@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Membership fees{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<h2>Membership types and fees</h2>
+<p class="muted">The fee here is what the billing run charges. Leave it blank if a type should not be billed automatically; set 0 for free memberships.</p>
+<form method="post" action="/app/finance/types">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="table-wrap"><table><thead><tr><th>Type</th><th>People</th><th>Fee (£)</th><th>Nominal</th><th>Joinable online</th><th>Active</th></tr></thead><tbody>
+  {% for t in types %}<tr><td>{{ t.name }}</td><td>{{ counts.get(t.name.lower(), 0) }}</td>
+  <td><input type="text" inputmode="decimal" name="fee_{{ t.id }}" value="{{ '%.2f' % (t.fee_minor / 100) if t.fee_minor is not none else '' }}" aria-label="Fee for {{ t.name }}" style="width:6rem"></td>
+  <td><select name="nominal_{{ t.id }}" aria-label="Nominal for {{ t.name }}">{% for c in nominals %}<option value="{{ c.code }}" {{ "selected" if t.nominal_code == c.code }}>{{ c.code }} {{ c.label }}</option>{% else %}<option value="{{ t.nominal_code }}">{{ t.nominal_code }}</option>{% endfor %}</select></td>
+  <td><input type="checkbox" name="join_{{ t.id }}" value="1" {{ "checked" if t.online_joinable }} aria-label="Joinable online"></td>
+  <td><input type="checkbox" name="active_{{ t.id }}" value="1" {{ "checked" if t.active }} aria-label="Active"></td></tr>
+  {% else %}<tr><td colspan="6" class="muted">No types yet; they are created when memberships are imported.</td></tr>{% endfor %}
+  </tbody></table></div>
+  <div class="toolbar" style="margin-top:.8rem"><input type="text" name="new_name" placeholder="New type name" aria-label="New type name"><input type="text" inputmode="decimal" name="new_fee" placeholder="Fee £" aria-label="New type fee" style="width:6rem"></div>
+  <button type="submit">Save fees</button>
+</form>
+{% if perms|can("finance.admin") %}
+<h2>Raise the fees for next season</h2>
+<form method="post" action="/app/finance/types/raise" class="form" style="max-width:480px"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Put every fee up by (%)<input type="text" name="percent" value="0" inputmode="decimal"></label>
+  <p class="muted">Rounded to the nearest 50p; free types stay free. Do this before preparing the renewal run, so the invoices carry the new fees.</p>
+  <button type="submit" class="secondary">Apply the rise</button></form>
+{% endif %}
+{% endblock %}

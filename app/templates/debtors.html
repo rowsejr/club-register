@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Aged debtors{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<div class="toolbar"><h2 style="margin:0">Aged debtors</h2><span class="spacer"></span><a class="btn secondary" href="/app/finance/debtors.csv">Export CSV</a><a class="btn" href="/app/finance/reminders">Send reminders</a></div>
+<p class="muted">Unpaid invoices by how long past their due date, grouped by person.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Contact</th><th class="num">Not due</th><th class="num">1–30</th><th class="num">31–60</th><th class="num">61–90</th><th class="num">90+</th><th class="num">Total</th><th>Invoices</th></tr></thead>
+<tbody>
+{% for r in rows %}<tr><td>{% if r.contact_id %}<a href="/app/contacts/{{ r.contact_id }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
+<td class="num">{{ r.buckets.not_due|gbp if r.buckets.not_due else "" }}</td><td class="num">{{ r.buckets.d1_30|gbp if r.buckets.d1_30 else "" }}</td><td class="num">{{ r.buckets.d31_60|gbp if r.buckets.d31_60 else "" }}</td>
+<td class="num">{{ r.buckets.d61_90|gbp if r.buckets.d61_90 else "" }}</td><td class="num">{{ r.buckets.d90_plus|gbp if r.buckets.d90_plus else "" }}</td><td class="num"><strong>{{ r.total|gbp }}</strong></td>
+<td style="white-space:normal">{% for id, ref, owed, days in r.invoices %}<a href="/app/finance/invoices/{{ id }}">{{ ref }}</a>{{ ", " if not loop.last }}{% endfor %}</td></tr>
+{% else %}<tr><td colspan="8" class="muted">Nobody owes anything.</td></tr>{% endfor %}
+</tbody>
+{% if rows %}<tfoot><tr><th>Total</th><th class="num">{{ totals.not_due|gbp }}</th><th class="num">{{ totals.d1_30|gbp }}</th><th class="num">{{ totals.d31_60|gbp }}</th><th class="num">{{ totals.d61_90|gbp }}</th><th class="num">{{ totals.d90_plus|gbp }}</th><th class="num">{{ totals.total|gbp }}</th><th></th></tr></tfoot>{% endif %}
+</table></div>
+{% endblock %}

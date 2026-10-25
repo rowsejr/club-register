@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_pager.html" import render_pager %}
+{% block title %}Applications{% endblock %}
+{% block content %}
+<h1>New members</h1>
+{% set sub = "applications" %}{% include "_people_nav.html" %}
+<div class="toolbar">
+  {% for key, label in tabs %}<a class="btn {{ '' if tab == key else 'secondary' }}" href="/app/applications?tab={{ key }}">{{ label }}{% if key == "waiting" %} ({{ counts.get("submitted", 0) + counts.get("info_requested", 0) }}){% elif key == "closed" %} ({{ counts.get("rejected", 0) + counts.get("withdrawn", 0) }}){% elif key in counts %} ({{ counts[key] }}){% endif %}</a>{% endfor %}
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Received</th><th>Name</th><th>Membership</th><th>Source</th><th>Status</th><th>First invoice</th></tr></thead><tbody>
+{% for a in rows %}{% set inv = invoices.get(a.invoice_id) %}<tr>
+  <td>{{ a.submitted_at|dmy }}</td><td><a href="/app/applications/{{ a.id }}">{{ a.name }}</a></td><td>{{ type_names.get(a.membership_type_id, "not chosen") }}</td><td>{{ a.source }}</td>
+  <td><span class="badge {{ 'paid' if a.status == 'completed' else ('cancelled' if a.status in ('rejected', 'withdrawn') else 'draft') }}">{{ a.status|replace("_", " ") }}</span></td>
+  <td>{% if inv %}<a href="/app/finance/invoices/{{ inv.id }}">{{ inv.reference }}</a> · {{ inv.status }}{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">Nothing here.</td></tr>{% endfor %}
+</tbody></table></div>
+{{ render_pager(pager, "/app/applications", {"tab": tab}, none) }}
+{% endblock %}

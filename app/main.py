@@ -1,0 +1,59 @@
+"""The club office: the web application. Every screen lives in app/ui; this file only puts them together."""
+
+from __future__ import annotations
+
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+from app import applications, events, finance, hardening, membership, privacy  # noqa: F401 - importing registers the "when paid" hooks
+from app.auth import is_dev
+from app.db import init_db
+from app.security import now_utc
+from app.ui.admin_routes import router as admin_ui_router
+from app.ui.berth_routes import router as berth_ui_router
+from app.ui.boat_routes import router as boat_ui_router
+from app.ui.cashbook_routes import router as cashbook_ui_router
+from app.ui.event_public_routes import router as event_public_ui_router
+from app.ui.event_routes import router as event_ui_router
+from app.ui.finance_routes import router as finance_ui_router
+from app.ui.job_routes import router as job_ui_router
+from app.ui.mailing_routes import router as mailing_ui_router
+from app.ui.payment_routes import router as payment_ui_router
+from app.ui.people360_routes import router as people360_ui_router
+from app.ui.people_routes import router as people_ui_router
+from app.ui.public_routes import router as public_ui_router
+from app.ui.report_routes import router as report_ui_router
+from app.ui.routes import LoginRequired, UiError, login_required_handler, ui_error_handler
+from app.ui.routes import router as ui_router
+from app.ui.season_routes import router as season_ui_router
+from app.ui.training_routes import router as training_ui_router
+
+logger = logging.getLogger("club")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="Club office", lifespan=lifespan, docs_url="/docs" if is_dev() else None, redoc_url=None, openapi_url="/openapi.json" if is_dev() else None)
+
+for router in (
+    ui_router, cashbook_ui_router, season_ui_router, people360_ui_router, mailing_ui_router, job_ui_router, payment_ui_router, event_ui_router, admin_ui_router,
+    event_public_ui_router, berth_ui_router, report_ui_router, finance_ui_router, boat_ui_router, people_ui_router, public_ui_router, training_ui_router,
+):
+    app.include_router(router)
+app.add_exception_handler(LoginRequired, login_required_handler)  # type: ignore[arg-type]
+app.add_exception_handler(UiError, ui_error_handler)  # type: ignore[arg-type]
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+hardening.install(app)
+
+
+@app.get("/health")
+def health() -> dict:
+    return {"status": "ok", "timestamp": now_utc().isoformat()}

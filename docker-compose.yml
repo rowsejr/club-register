@@ -1,0 +1,17 @@
+# The club office runs on SQLite: one file on a volume, backed up nightly by the jobs timer (python -m app.cli run-jobs).
+# Email and payments stay in sandbox mode until you set CLUB_EMAIL_PROVIDER and the payment settings.
+services:
+  office:
+    build: .
+    environment:
+      CLUB_ENV: production
+      CLUB_BASE_URL: ${CLUB_BASE_URL:-http://localhost:8000}
+      CLUB_TRUST_PROXY: "1" # only behind Caddy or nginx
+      CLUB_EMAIL_PROVIDER: sandbox
+    volumes:
+      - office_data:/data
+    ports:
+      - "127.0.0.1:8000:8000" # put Caddy or nginx in front for HTTPS
+
+volumes:
+  office_data:

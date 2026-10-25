@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Boat park season {{ year }}{% endblock %}
+{% block content %}
+<h1>Boats and berths</h1>
+{% include "_boats_nav.html" %}
+<div class="toolbar"><h2 style="margin:0">The boat park: {{ year }} into {{ year + 1 }}</h2><span class="spacer"></span>
+  <a class="btn secondary" href="/app/storage/season?year={{ year - 1 }}">← {{ year - 1 }}</a><a class="btn secondary" href="/app/storage/season?year={{ year + 1 }}">{{ year + 1 }} →</a></div>
+<p class="muted">Owners say in their account whether they are keeping their space. You can also record it for them. Spaces carry forward in one step; anyone leaving is left to end, and the space goes to the <a href="/app/storage/waiting">waiting list</a>.</p>
+<div class="cards">
+  <div class="card"><div class="label">Keeping</div><div class="metric">{{ counts.keeping }}</div></div>
+  <div class="card"><div class="label">No reply yet</div><div class="metric {{ 'warn' if counts['no reply'] }}">{{ counts["no reply"] }}</div></div>
+  <div class="card"><div class="label">Leaving</div><div class="metric">{{ counts.leaving }}</div></div>
+  <div class="card"><div class="label">Free spaces now</div><div class="metric">{{ free_now }}</div></div>
+  <div class="card"><a href="/app/storage/waiting"><div class="label">On the waiting list</div><div class="metric">{{ waiting }}</div></a></div>
+</div>
+
+<h3>How full each part of the park is</h3>
+<div class="table-wrap"><table><thead><tr><th>Kind</th><th>Group</th><th class="num">Capacity</th><th class="num">In use</th><th class="num">Free</th><th>Free spaces</th></tr></thead><tbody>
+{% for g in groups %}<tr><td>{{ g.resource_type }}</td><td>{{ g.group or "" }}</td><td class="num">{{ g.capacity }}</td><td class="num">{{ g.used }}</td><td class="num">{{ g.free }}</td><td style="white-space:normal" class="muted">{{ g.free_names[:12]|join(", ") }}{{ "…" if g.free_names|length > 12 }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No spaces yet.</td></tr>{% endfor %}
+</tbody></table></div>
+
+<h3>Who holds what</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Space</th><th>Boat</th><th>Owner</th><th>For {{ year + 1 }}</th>{% if perms|can("boats.write") %}<th></th>{% endif %}</tr></thead>
+<tbody>
+{% for r in rows %}<tr><td>{{ r.resource.name }}</td><td><a href="/app/boats/{{ r.boat.id }}">{{ r.boat.name }}</a></td><td>{% if r.owner %}<a href="/app/contacts/{{ r.owner.id }}">{{ r.owner.name }}</a>{% endif %}</td>
+<td><span class="badge {{ 'paid' if r.state == 'keeping' else ('cancelled' if r.state == 'leaving' else 'draft') }}">{{ r.state }}</span></td>
+{% if perms|can("boats.write") %}<td style="white-space:nowrap">
+  <form method="post" action="/app/storage/season/{{ r.allocation.id }}/keep" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="year" value="{{ year }}"><button class="secondary" type="submit">Keeping</button></form>
+  <form method="post" action="/app/storage/season/{{ r.allocation.id }}/leave" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="year" value="{{ year }}"><button class="secondary" type="submit">Leaving</button></form></td>{% endif %}</tr>
+{% else %}<tr><td colspan="5" class="muted">No spaces run through the end of {{ year }}.</td></tr>{% endfor %}
+</tbody></table></div>
+
+{% if perms|can("boats.write") %}
+<h3>Carry the park into {{ year + 1 }}</h3>
+<form method="post" action="/app/storage/season/roll" class="toolbar">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="year" value="{{ year }}">
+  <label class="check"><input type="checkbox" name="confirm" value="1"> <span>Extend every space that ends in {{ year }} (except those marked leaving) to the end of {{ year + 1 }}</span></label>
+  <button type="submit">Carry spaces forward</button>
+</form>
+<p class="muted">Then bill the new season from <a href="/app/season?year={{ year + 1 }}">Season {{ year + 1 }}</a>.</p>
+{% endif %}
+{% endblock %}

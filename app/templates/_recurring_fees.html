@@ -1,0 +1,22 @@
+<section class="extras" id="extras">
+<h2>Extras charged every season</h2>
+<p class="muted">Things this person pays for each year on top of membership: a locker, a kayak rack, a key. They are added to the season invoice automatically.</p>
+{% if fees %}
+<div class="table-wrap"><table><thead><tr><th>Extra</th><th class="num">Amount</th><th>Nominal</th><th>Until</th><th></th></tr></thead><tbody>
+{% for f in fees %}<tr class="{{ '' if f.active else 'muted' }}"><td>{{ f.name }}{% if f.quantity and f.quantity != 1 %} × {{ "%g"|format(f.quantity) }}{% endif %}{% if f.note %}<br><span class="muted">{{ f.note }}</span>{% endif %}</td><td class="num">{{ (f.amount_minor * (f.quantity or 1))|round|int|gbp }}</td><td>{{ f.nominal_code or "" }}</td><td>{{ f.ends_on|dmy if f.ends_on else "" }}{% if not f.active %} stopped{% endif %}</td>
+<td style="white-space:nowrap">{% if perms|can("finance.write") %}{% if f.active %}<form method="post" action="/app/extras/{{ f.id }}/stop" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Stop</button></form>{% endif %}
+<form method="post" action="/app/extras/{{ f.id }}/delete" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Remove</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="muted">None.</p>{% endif %}
+{% if perms|can("finance.write") %}
+<form method="post" action="/app/contacts/{{ contact.id }}/extras" class="toolbar" style="margin-top:.5rem">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="text" name="name" list="extra-names" placeholder="e.g. Kayak storage" aria-label="What for" required style="min-width:12rem"><datalist id="extra-names">{% for i in items %}<option value="{{ i.label }}">{% endfor %}</datalist>
+  <input type="text" inputmode="decimal" name="amount" placeholder="£ each" aria-label="Amount" required style="width:6rem">
+  <input type="text" inputmode="decimal" name="quantity" value="1" aria-label="Quantity" style="width:4rem">
+  <select name="nominal" aria-label="Nominal"><option value="">Nominal</option>{% for c in nominals %}<option value="{{ c.code }}">{{ c.code }} {{ c.label }}</option>{% endfor %}</select>
+  <input type="date" name="ends_on" aria-label="Until (optional)" title="Until (optional)">
+  <button type="submit" class="secondary">Add</button>
+</form>
+{% endif %}
+</section>

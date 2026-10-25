@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_people_filters.html" import filter_bar %}
+{% block title %}New mailing{% endblock %}
+{% block content %}
+<p><a href="/app/mailings">← Mailings</a></p>
+<h1>New mailing</h1>
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<h2>1. Who gets it?</h2>
+<p class="muted">Use the filters, or a list or tag. This shows how many people match; people with no email address or who asked not to be emailed are left out when you check the list.</p>
+<form method="get" action="/app/mailings/new" class="toolbar filters">
+  <input type="search" name="q" value="{{ f.q }}" placeholder="Name or email contains" aria-label="Search">
+  <select name="member" aria-label="Member"><option value="">Members or not</option><option value="yes" {{ "selected" if f.member == "yes" }}>Members only</option><option value="no" {{ "selected" if f.member == "no" }}>Not members</option></select>
+  <select name="status" aria-label="Status">{% for v, l in ch.statuses %}<option value="{{ v }}" {{ "selected" if f.status == v }}>{{ l }}</option>{% endfor %}</select>
+  <select name="type" aria-label="Membership type"><option value="">Any type</option>{% for t in ch.types %}<option value="{{ t }}" {{ "selected" if f.type == t }}>{{ t }}</option>{% endfor %}</select>
+  <select name="age" aria-label="Age">{% for v, l in ch.ages %}<option value="{{ v }}" {{ "selected" if f.age == v }}>{{ l }}</option>{% endfor %}</select>
+  <select name="list" aria-label="List"><option value="">Any list</option>{% for l in ch.lists %}<option value="{{ l }}" {{ "selected" if f.list == l }}>{{ l }}</option>{% endfor %}</select>
+  <select name="tag" aria-label="Tag"><option value="">Any tag</option>{% for t in ch.tags %}<option value="{{ t }}" {{ "selected" if f.tag == t }}>{{ t }}</option>{% endfor %}</select>
+  <select name="boat" aria-label="Has a boat">{% for v, l in ch.yes_no %}<option value="{{ v }}" {{ "selected" if f.boat == v }}>{{ "Boat: " + l if v else "Has a boat?" }}</option>{% endfor %}</select>
+  <select name="unpaid" aria-label="Owes money">{% for v, l in ch.yes_no %}<option value="{{ v }}" {{ "selected" if f.unpaid == v }}>{{ "Owes: " + l if v else "Owes money?" }}</option>{% endfor %}</select>
+  <button type="submit" class="secondary">Count them</button>
+  <strong>{{ count }} contact{{ "" if count == 1 else "s" }} match</strong>
+</form>
+
+<h2>2. What does it say?</h2>
+<form method="post" action="/app/mailings" class="form" style="max-width:760px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% for k, v in f.as_params().items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <div class="toolbar" style="margin:0"><span class="muted">Start from:</span>{% for t in templates_ %}<a class="chip" href="/app/mailings/new?template={{ t.id }}&amp;{{ f.as_params()|urlencode }}">{{ t.name }}</a>{% endfor %}</div>
+  <label>Subject<input type="text" name="subject" value="{{ subject }}" required></label>
+  <label>Message<textarea name="body" rows="10" required>{{ body }}</textarea></label>
+  <p class="muted">Merge fields, filled in for each person: {% for k, d in fields.items() %}<code>{{ "{" ~ k ~ "}" }}</code> {{ d }}{{ "; " if not loop.last }}{% endfor %}.</p>
+  <label>Keep this wording as a template called <span class="muted">(optional)</span><input type="text" name="save_template" placeholder="e.g. Laying-up supper"></label>
+  <div class="actions"><button type="submit">Check the list and preview</button></div>
+</form>
+{% endblock %}

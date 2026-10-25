@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Debtors at a date{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+{% include "_report_nav.html" %}
+<form method="get" action="/app/finance/reports/debtors" class="toolbar no-print">
+  <label class="inline">As at <input type="date" name="as_at" value="{{ as_at.isoformat() }}"></label>
+  <button type="submit" class="secondary">Show</button>
+  <span class="spacer"></span>
+  <a class="btn secondary" href="/app/finance/reports/debtors.csv?as_at={{ as_at }}">Export CSV</a>
+</form>
+<h2>Who owed the club money on {{ as_at|dmy }}</h2>
+<p class="muted">Payments received after this date do not count, and an invoice written off later was still owed. Use the last day of the year for the trustees' year-end figure.</p>
+<div class="cards">
+  <div class="card"><div class="label">Total owed</div><div class="metric">{{ total|gbp }}</div></div>
+  <div class="card"><div class="label">Not yet due</div>{{ buckets.not_due|gbp }}</div>
+  <div class="card"><div class="label">1–30 days late</div>{{ buckets.d1_30|gbp }}</div>
+  <div class="card"><div class="label">31–90 days late</div>{{ (buckets.d31_60 + buckets.d61_90)|gbp }}</div>
+  <div class="card"><div class="label">Over 90 days</div>{{ buckets.d90_plus|gbp }}</div>
+</div>
+<div class="table-wrap"><table class="report"><thead><tr><th>Contact</th><th>Invoice</th><th>Issued</th><th>Due</th><th class="num">Days late</th><th class="num">Owed</th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{% if r.contact_id %}<a href="/app/contacts/{{ r.contact_id }}">{{ r.contact_name }}</a>{% else %}{{ r.contact_name }}{% endif %}</td><td><a href="/app/finance/invoices/{{ r.invoice.id }}">{{ r.invoice.reference }}</a></td><td>{{ r.invoice.issue_date|dmy }}</td><td>{{ r.invoice.due_date|dmy }}</td><td class="num">{{ r.days_overdue or "" }}</td><td class="num">{{ r.outstanding|gbp }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">Nobody owed anything.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

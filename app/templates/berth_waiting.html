@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Waiting list{% endblock %}
+{% block content %}
+<h1>Boats and berths</h1>
+{% include "_boats_nav.html" %}
+<h2>Waiting list for a space</h2>
+<p class="muted">First come, first served. When a space comes free, offer it to the person at the top; the boat is allocated and the request closed.</p>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>Who</th><th>Boat</th><th>Wants</th><th>Since</th><th>Note</th><th></th></tr></thead><tbody>
+{% for request, contact, boat, place in queue %}<tr><td>{{ place }}</td><td><a href="/app/contacts/{{ contact.id }}">{{ contact.name }}</a></td><td>{{ boat.name if boat else "" }}</td><td>{{ request.resource_type }}{% if request.resource_group %} / {{ request.resource_group }}{% endif %}</td><td>{{ request.created_at|dmy }}</td><td style="white-space:normal">{{ request.note or "" }}</td>
+<td style="white-space:normal">{% if perms|can("boats.write") %}
+  {% if boat %}<form method="post" action="/app/storage/waiting/{{ request.id }}/offer" class="toolbar" style="margin:0">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="boat_id" value="{{ boat.id }}">
+    <select name="resource_id" aria-label="Space to offer">{% for s in spaces %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select>
+    <button type="submit">Give this space</button></form>{% else %}<span class="muted">needs a boat on their account first</span>{% endif %}
+  <form method="post" action="/app/storage/waiting/{{ request.id }}/withdraw" style="margin:.2rem 0 0"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Take off the list</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">Nobody is waiting.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if free %}<p class="muted">Free now: {% for g, name in free[:20] %}{{ name }}{{ ", " if not loop.last }}{% endfor %}{{ "…" if free|length > 20 }}</p>{% else %}<p class="muted">No free spaces at the moment.</p>{% endif %}
+{% if perms|can("boats.write") %}
+<h3>Add someone to the list</h3>
+<form method="post" action="/app/storage/waiting" class="form" style="max-width:520px"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Contact number (from their contact page address)<input type="number" name="contact_id" required min="1"></label>
+  <div class="row"><label>Kind of space<input type="text" name="resource_type" value="berth"></label><label>Group (optional)<input type="text" name="group"></label></div>
+  <label>Note<input type="text" name="note"></label>
+  <button type="submit">Add to the list</button></form>
+{% endif %}
+{% endblock %}

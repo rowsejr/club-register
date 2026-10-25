@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Storage fees{% endblock %}
+{% block content %}
+<h1>Boats and berths</h1>
+{% include "_boats_nav.html" %}
+<div class="toolbar"><h2 style="margin:0">Storage fees for {{ year }}</h2><span class="spacer"></span>
+  <a class="btn secondary" href="/app/storage/tariffs?year={{ year - 1 }}">← {{ year - 1 }}</a><a class="btn secondary" href="/app/storage/tariffs?year={{ year + 1 }}">{{ year + 1 }} →</a></div>
+<p class="muted">The fee for a space comes from its type and group. A fee for a group beats a fee for the whole type; a fee set on one boat's allocation beats both.</p>
+<div class="table-wrap"><table><thead><tr><th>Type</th><th>Group</th><th class="num">Fee</th><th>Nominal</th><th>Mid-season starts</th></tr></thead><tbody>
+{% for t in tariffs %}<tr><td>{{ t.resource_type }}</td><td>{{ t.resource_group or "every group" }}</td><td class="num">{{ t.fee_minor|gbp }}</td><td>{{ t.nominal_code }}</td><td>{{ "pro rata by the month" if t.prorata else "full fee" }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">No fees set for {{ year }}.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if perms|can("storage.bill") %}
+<h2>Set a fee</h2>
+<form method="post" action="/app/storage/tariffs" class="form" style="max-width:560px"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="year" value="{{ year }}">
+  <div class="row"><label>Type<input type="text" name="resource_type" list="combo-types" required><datalist id="combo-types">{% for type, group, n in combos %}<option value="{{ type }}">{% endfor %}</datalist></label>
+  <label>Group (blank = all)<input type="text" name="group" list="combo-groups"><datalist id="combo-groups">{% for type, group, n in combos if group %}<option value="{{ group }}">{% endfor %}</datalist></label></div>
+  <div class="row"><label>Fee (£)<input type="text" name="fee" inputmode="decimal" required></label><label>Nominal<input type="text" name="nominal" value="0102"></label></div>
+  <label class="check"><input type="checkbox" name="prorata" value="1"> <span>Charge by the month when a space starts part way through the season</span></label>
+  <button type="submit">Save fee</button></form>
+<p class="muted">Spaces you have: {% for type, group, n in combos %}{{ type }}{% if group %} / {{ group }}{% endif %} ({{ n }}){{ ", " if not loop.last }}{% endfor %}</p>
+<h2>Start the next season</h2>
+<form method="post" action="/app/storage/tariffs/copy" class="form" style="max-width:560px"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="to_year" value="{{ year }}">
+  <div class="row"><label>Copy the fees from<input type="number" name="from_year" value="{{ year - 1 }}" min="2000" max="2100"></label><label>Raise them by (%)<input type="text" name="rise" value="0" inputmode="decimal"></label></div>
+  <p class="muted">Copies every fee into {{ year }}, rounded to the nearest 50p. Fees you have already set for {{ year }} are left alone.</p>
+  <button type="submit" class="secondary">Copy fees forward</button></form>
+{% endif %}
+{% endblock %}

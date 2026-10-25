@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }}{% endblock %}
+{% block content %}
+<p><a href="/app/events?year={{ event.start_at.year }}&amp;month={{ event.start_at.month }}">← Events</a></p>
+<div class="toolbar"><h1 style="margin:0">{{ event.title }}</h1><span class="badge {{ 'paid' if event.published else 'draft' }}">{{ "published" if event.published else "draft" }}</span>
+  <span class="spacer"></span>{% if event.published %}<a class="btn secondary" href="/whats-on/{{ event.id }}" target="_blank" rel="noopener">View public page</a>{% endif %}</div>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<p>{{ event.start_at|local }}{% if event.end_at %} to {{ event.end_at|local("%H:%M") }}{% endif %}{% if event.location %} · {{ event.location }}{% endif %}{% if event.event_type %} · {{ event.event_type }}{% endif %}</p>
+{% if event.description %}<p style="white-space:pre-wrap">{{ event.description }}</p>{% endif %}
+
+<h2>Tickets</h2>
+{% if event.bookable %}
+<div class="cards"><div class="card"><div class="label">Sold or held</div><div class="metric">{{ avail.taken }}</div><div class="label">{{ "of " ~ avail.limit if avail.limit is not none else "no limit" }}</div></div>
+  <div class="card"><div class="label">Left</div><div class="metric">{{ avail.free if avail.free is not none else "∞" }}</div></div>
+  <div class="card"><div class="label">Waiting</div><div class="metric">{{ avail.waiting }}</div></div>
+  <div class="card"><div class="label">On sale?</div><div>{{ "Yes" if sales[0] else sales[1] }}</div></div></div>
+{% else %}<p class="muted">Tickets are not on sale for this event. Tick “Tickets can be bought” below to start.</p>{% endif %}
+<div class="table-wrap"><table><thead><tr><th>Ticket</th><th>For</th><th class="num">Price</th><th class="num">Places</th><th class="num">Taken</th><th></th></tr></thead><tbody>
+{% for t in types %}<tr class="{{ '' if t.active else 'muted' }}"><td>{{ t.name }}</td><td>{{ {"members": "members only", "public": "the public", "all": "everyone"}[t.audience] }}</td><td class="num">{{ t.price_minor|gbp if t.price_minor else "free" }}</td><td class="num">{{ t.capacity if t.capacity is not none else "" }}</td><td class="num">{{ avail.by_type.get(t.id, 0) }}</td>
+<td>{% if perms|can("events.write") %}<details><summary>Edit</summary><form method="post" action="/app/events/{{ event.id }}/types" class="toolbar"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="type_id" value="{{ t.id }}"><input type="text" name="name" value="{{ t.name }}" style="width:9rem" aria-label="Name"><input type="text" name="price" value="{{ '%.2f' % (t.price_minor / 100) }}" style="width:5rem" aria-label="Price"><select name="audience" aria-label="For">{% for k in ["all", "members", "public"] %}<option {{ "selected" if t.audience == k }}>{{ k }}</option>{% endfor %}</select><input type="number" name="capacity" value="{{ t.capacity if t.capacity is not none else '' }}" style="width:5rem" placeholder="places" aria-label="Places"><select name="active" aria-label="On sale"><option value="1" {{ "selected" if t.active }}>on sale</option><option value="0" {{ "selected" if not t.active }}>off</option></select><button class="secondary" type="submit">Save</button></form></details>{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No ticket types yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if perms|can("events.write") %}<form method="post" action="/app/events/{{ event.id }}/types" class="toolbar"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="name" placeholder="New ticket, e.g. Member" required aria-label="Name"><input type="text" name="price" placeholder="£ price" inputmode="decimal" style="width:6rem" aria-label="Price"><select name="audience" aria-label="Who is it for"><option value="members">members only</option><option value="public">the public</option><option value="all">everyone</option></select><input type="number" name="capacity" placeholder="places (optional)" style="width:9rem"><button type="submit" class="secondary">Add ticket type</button></form>{% endif %}
+
+<div class="toolbar"><h3 style="margin:1rem 0 0">Who is coming</h3><span class="spacer"></span><a class="btn secondary" href="/app/events/{{ event.id }}/attendees.csv">Export CSV</a></div>
+<div class="table-wrap"><table><thead><tr><th>Buyer</th><th>Ticket for</th><th>Ticket</th><th>Status</th><th>Invoice</th><th></th></tr></thead><tbody>
+{% for a in attendees %}<tr><td><a href="/app/contacts/{{ a.contact.id }}">{{ a.contact.name }}</a>{% if not a.member %} <span class="badge">public</span>{% endif %}</td><td>{{ a.ticket.holder_name or "" }}</td><td>{{ a.type_name }}</td>
+<td><span class="badge {{ 'paid' if a.ticket.status == 'booked' else 'draft' }}">{{ a.ticket.status }}</span>{% if a.ticket.checked_in %} ✓ arrived{% endif %}</td>
+<td>{% set inv = invoices.get(a.ticket.invoice_id) %}{% if inv %}<a href="/app/finance/invoices/{{ inv.id }}">{{ inv.reference }}</a> <span class="muted">{{ inv.status|status_label }}</span>{% endif %}</td>
+<td style="white-space:nowrap">{% if perms|can("events.write") %}{% if a.ticket.status == "booked" %}<form method="post" action="/app/events/{{ event.id }}/tickets/{{ a.ticket.id }}/{{ 'uncheck' if a.ticket.checked_in else 'checkin' }}" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">{{ "Undo arrived" if a.ticket.checked_in else "Arrived" }}</button></form>{% endif %}
+<form method="post" action="/app/events/{{ event.id }}/tickets/{{ a.ticket.id }}/cancel" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Cancel</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No tickets sold yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if perms|can("events.write") and types %}<form method="post" action="/app/events/{{ event.id }}/attendees" class="toolbar"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="number" name="contact_id" min="1" placeholder="Contact number" required style="width:9rem" aria-label="Contact number"><select name="type_id" aria-label="Ticket">{% for t in types if t.active %}<option value="{{ t.id }}">{{ t.name }}{% if t.price_minor %} £{{ '%.2f' % (t.price_minor / 100) }}{% endif %}</option>{% endfor %}</select><input type="number" name="quantity" value="1" min="1" max="8" style="width:4rem" aria-label="How many"><button type="submit" class="secondary">Add a booking</button><span class="muted">for someone who bought in person or by phone</span></form>{% endif %}
+
+<h2>Notices and documents</h2>
+{% for n in notices %}<div class="card" style="margin-bottom:.4rem">{{ n.message }} <span class="muted">{{ n.created_at|dmy }}</span></div>{% endfor %}
+<ul>{% for d in documents %}<li><a href="{{ d.uri }}" target="_blank" rel="noopener">{{ d.title }}</a></li>{% endfor %}</ul>
+{% if perms|can("events.write") %}<form method="post" action="/app/events/{{ event.id }}/notices" class="toolbar"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="message" placeholder="Notice for the noticeboard" style="min-width:20rem" aria-label="Notice"><button type="submit" class="secondary">Post</button></form>
+<form method="post" action="/app/events/{{ event.id }}/documents" class="toolbar"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="title" placeholder="Document title" aria-label="Title"><input type="url" name="uri" placeholder="https://… link to the document" style="min-width:20rem" aria-label="Link"><button type="submit" class="secondary">Link a document</button></form>
+<h2>Wrap-up</h2>
+<form method="post" action="/app/events/{{ event.id }}/wrapup" class="form" style="max-width:720px"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Tally (numbers, takings)<textarea name="tally" rows="2">{{ wrap.tally_notes if wrap else "" }}</textarea></label><label>Result summary<textarea name="summary" rows="2">{{ wrap.result_summary if wrap else "" }}</textarea></label><label>Actions for next time<textarea name="actions" rows="2">{{ wrap.actions if wrap else "" }}</textarea></label>
+  <button type="submit" class="secondary">Save wrap-up</button></form>
+
+<h2>Event details</h2>
+{% include "_event_fields.html" %}
+<form method="post" action="/app/events/{{ event.id }}/duplicate" class="toolbar"><input type="hidden" name="csrf" value="{{ csrf }}"><span>Copy this event (tickets included) a number of weeks later:</span><input type="number" name="weeks" value="1" min="1" max="52" style="width:4.5rem" aria-label="Weeks later"><button type="submit" class="secondary">Copy</button></form>
+{% endif %}
+{% endblock %}

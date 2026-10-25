@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Season {{ year }}{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <h1 style="margin:0">Season {{ year }}</h1><span class="spacer"></span>
+  <a class="btn secondary" href="/app/season?year={{ year - 1 }}">← {{ year - 1 }}</a><a class="btn secondary" href="/app/season?year={{ year + 1 }}">{{ year + 1 }} →</a>
+</div>
+<p class="muted">The yearly routine, in order. Every step is safe to repeat: anyone already told or invoiced is skipped.</p>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+
+<div class="cards">
+  <div class="card"><div class="label">Memberships due</div><div class="metric">{{ progress.due }}</div><div class="label">{{ progress.declined }} not renewing</div></div>
+  <div class="card"><div class="label">Still to invoice</div><div class="metric">{{ progress.to_invoice_payers }}</div><div class="label">{{ progress.to_invoice_total|gbp }}</div></div>
+  <div class="card"><div class="label">Invoiced this season</div><div class="metric">{{ progress.invoiced }}</div><div class="label">{{ progress.paid }} paid</div></div>
+  <div class="card"><div class="label">Need attention</div><div class="metric {{ 'warn' if progress.problems }}">{{ progress.problems }}</div><div class="label">things that cannot be billed yet</div></div>
+</div>
+
+<h2>1. Get the prices right</h2>
+<ul>
+  <li><a href="/app/finance/types">Membership fees</a>: check them, or put them all up by a percentage.</li>
+  <li><a href="/app/storage/tariffs?year={{ year }}">Boat park fees for {{ year }}</a>: copy last season's forward with an optional rise. Mid-season starts can be charged by the month.</li>
+  <li>Extras (a locker, a kayak rack, a key) are set on the person's contact page and join their invoice automatically.</li>
+</ul>
+
+<h2>2. Tell members it is time to renew</h2>
+<p class="muted">Members can renew themselves online from {{ window }} month{{ "" if window == 1 else "s" }} before the season (change this in <a href="/app/finance/settings">Finance settings</a>). A notice also tells them the fee.</p>
+{% if notices %}
+<form method="post" action="/app/season/notices">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="year" value="{{ year }}">
+  <div class="table-wrap"><table>
+    <thead><tr><th style="width:2rem"><input type="checkbox" aria-label="Tick everyone" data-check-all=".pick-notice"></th><th>Member</th><th>Type</th><th class="num">Fee</th><th>Email</th><th>Last told</th></tr></thead>
+    <tbody>{% for n in notices %}<tr><td><input type="checkbox" class="pick-notice" name="member" value="{{ n.member.id }}" {{ "checked" if n.can_email and not n.last_notice }} {{ "disabled" if not n.can_email }}></td><td><a href="/app/contacts/{{ n.contact.id }}">{{ n.contact.name }}</a></td><td>{{ n.mtype_name }}</td><td class="num">{{ n.fee_minor|gbp }}</td><td>{{ n.contact.email or "none: tell them in person" }}</td><td class="muted">{{ n.last_notice|dmy if n.last_notice else "" }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="actions"><button type="submit" class="secondary">Send the ticked renewal notices</button></div>
+</form>
+{% else %}<p class="muted">Nobody is waiting to be told.</p>{% endif %}
+
+<h2>3. Invoice the season</h2>
+<p class="muted">{{ "One invoice per person with membership, boat park and extras together." if mode == "combined" else "Separate invoices for membership, boat park and extras." }} Paying it activates the membership. People with no email are listed afterwards so you can print their PDF.</p>
+{% if plans %}
+<form method="post" action="/app/season/invoices">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="year" value="{{ year }}">
+  <div class="table-wrap"><table>
+    <thead><tr><th style="width:2rem"><input type="checkbox" aria-label="Tick everyone" data-check-all=".pick-payer"></th><th>Payer</th><th>What they will be charged</th><th class="num">Total</th><th>Notes</th></tr></thead>
+    <tbody>
+    {% for p in plans %}<tr>
+      <td>{% if p.items and p.contact.id %}<input type="checkbox" class="pick-payer" name="payer" value="{{ p.contact.id }}" checked>{% endif %}</td>
+      <td>{% if p.contact.id %}<a href="/app/contacts/{{ p.contact.id }}">{{ p.contact.name }}</a>{% else %}<em>{{ p.contact.name }}</em>{% endif %}{% if p.items and not p.can_email %}<br><span class="muted">no email</span>{% endif %}</td>
+      <td style="white-space:normal">{% for i in p.items %}{{ i.description }} <span class="muted">{{ i.amount_minor|gbp }}</span>{{ "; " if not loop.last }}{% endfor %}{% if p.already %}<div class="muted">Already: {{ p.already|join("; ") }}</div>{% endif %}</td>
+      <td class="num">{{ p.total|gbp if p.items else "" }}</td>
+      <td style="white-space:normal">{% for problem in p.problems %}<span class="badge cancelled">{{ problem }}</span> {% endfor %}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+  <div class="toolbar">
+    <label class="check"><input type="checkbox" name="confirm" value="1"> <span>I have checked the list: create these invoices</span></label>
+    <button type="submit" name="action" value="issue_email">Issue and email the ticked</button>
+    <button type="submit" name="action" value="issue" class="secondary">Issue without emailing</button>
+    <button type="submit" name="action" value="draft" class="secondary">Save as drafts to check first</button>
+  </div>
+</form>
+{% else %}<p class="muted">Nothing to invoice for {{ year }}. Either everyone has been billed, or there are no memberships due.</p>{% endif %}
+
+<h2>4. Chase and tidy up</h2>
+<ul>
+  <li><a href="/app/finance/reminders">Send payment reminders</a> to anyone overdue (14 days apart).</li>
+  <li><a href="/app/finance?filter=open&amp;tag=season+{{ year }}">Season invoices still unpaid</a></li>
+</ul>
+{% if lapses %}
+<h3>Unpaid long enough to lapse</h3>
+<p class="muted">Their invoice stays as a debt; lapsing ends the membership so they no longer count as members. Tick “release their spaces” to free the boat park for the waiting list.</p>
+<form method="post" action="/app/season/lapse">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="year" value="{{ year }}">
+  <div class="table-wrap"><table><thead><tr><th style="width:2rem"></th><th>Member</th><th>Invoice</th><th class="num">Owed</th><th class="num">Days overdue</th><th>Spaces</th></tr></thead><tbody>
+  {% for c in lapses %}<tr><td><input type="checkbox" name="member" value="{{ c.member.id }}"></td><td>{{ c.member.name }}</td><td><a href="/app/finance/invoices/{{ c.invoice.id }}">{{ c.invoice.reference }}</a></td><td class="num">{{ c.owed|gbp }}</td><td class="num">{{ c.days_overdue }}</td><td>{{ c.spaces|length or "" }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  <div class="toolbar">
+    <label class="check"><input type="checkbox" name="release" value="1"> <span>Also release their boat park spaces</span></label>
+    <label class="check"><input type="checkbox" name="confirm" value="1"> <span>I have checked: lapse the ticked members</span></label>
+    <button type="submit" class="danger">Lapse the ticked members</button>
+  </div>
+</form>
+{% endif %}
+
+<h2>5. Report</h2>
+<ul><li><a href="/app/finance/reports/membership">Membership numbers by type and year</a> for the AGM.</li><li><a href="/app/finance/reports">Committee money report</a></li></ul>
+{% endblock %}

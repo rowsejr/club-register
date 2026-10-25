@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Club office{% endblock %} · Margate Yacht Club</title>
+<link rel="stylesheet" href="/static/club.css">
+<script src="/static/htmx.min.js" defer></script>
+<script src="/static/ui.js" defer></script>
+</head>
+<body{% if csrf %} hx-headers='{{ {"X-CSRF-Token": csrf}|tojson }}'{% endif %}>
+{% if demo %}<div class="alert info" role="note" style="margin:0;border-radius:0;text-align:center">Demo site with fictional people and real-shaped figures. Nothing here is emailed or charged.</div>{% endif %}
+<a class="skip-link" href="#main">Skip to the content</a>
+<header class="topbar">
+  <a class="brand" href="/">⚓ MYC club office</a>
+  {% if user %}
+  <nav aria-label="Main">
+    {% if not perms %}
+    <a href="/app" class="{{ 'active' if nav == 'dashboard' }}">My account</a>
+    {% else %}
+    <a href="/app" class="{{ 'active' if nav == 'dashboard' }}">Dashboard</a>
+    {% if perms|can("members.read") %}<a href="/app/members" class="{{ 'active' if nav == 'members' }}">Members</a>
+    <a href="/app/contacts" class="{{ 'active' if nav == 'contacts' }}">Contacts</a>
+    <a href="/app/mailings" class="{{ 'active' if nav == 'mail' }}">Mailings</a>
+    <a href="/app/enquiries" class="{{ 'active' if nav == 'people' }}">New members</a>
+    <a href="/app/events" class="{{ 'active' if nav == 'events' }}">Events</a>{% endif %}
+    {% if perms|can("training.read") %}<a href="/app/training" class="{{ 'active' if nav == 'training' }}">Training</a>{% endif %}
+    {% if perms|can("boats.read") %}<a href="/app/boats" class="{{ 'active' if nav == 'boats' }}">Boats</a>{% endif %}
+    {% if perms|can("billing.run") %}<a href="/app/season" class="{{ 'active' if nav == 'season' }}">Season</a>{% endif %}
+    {% if perms|can("finance.read") %}<a href="/app/finance" class="{{ 'active' if nav == 'finance' }}">Finance</a>{% endif %}
+    {% if role == "Admin" %}<a href="/app/admin/users" class="{{ 'active' if nav == 'admin' }}">Users</a>
+    <a href="/app/admin/jobs">Jobs</a>
+    <a href="/app/admin/audit">Audit</a>{% endif %}
+    {% endif %}
+  </nav>
+  <div class="who">
+    <span>{{ user }} · {{ role }}</span>
+    <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" type="submit">Sign out</button></form>
+  </div>
+  {% else %}
+  <nav aria-label="Main"><a href="/membership">Membership</a><a href="/join-us">Enquire</a><a href="/courses">Courses</a><a href="/whats-on">What's on</a><a href="/join">Join online</a><a href="/login">Sign in</a></nav>
+  {% endif %}
+</header>
+<main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
+</body>
+</html>

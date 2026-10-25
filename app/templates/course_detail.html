@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ course.name }}{% endblock %}
+{% block content %}
+<h1>Training</h1>
+{% include "_training_nav.html" %}
+{% set taken, free, waiting = seats %}
+<div class="toolbar"><h2 style="margin:0">{{ course.name }} <span class="badge {{ 'cancelled' if course.status == 'cancelled' else 'paid' }}">{{ course.status or "open" }}</span></h2><span class="spacer"></span><a class="btn secondary" href="/app/training/{{ course.id }}/roster.csv">Roster (CSV)</a></div>
+<div class="cards" style="margin-bottom:1rem">
+  <div class="card"><div class="label">When</div>{{ course.starts_at|local }}</div>
+  <div class="card"><div class="label">Places</div><div class="metric" style="font-size:1.4rem">{{ taken }} / {{ course.capacity }}</div><span class="muted">{{ free }} free{% if waiting %} · {{ waiting }} waiting{% endif %}</span></div>
+  <div class="card"><div class="label">Price</div>{{ course.price_minor|gbp if course.price_minor else "Free" }}</div>
+  <div class="card"><div class="label">Free cancellation</div>until {{ course.cancel_cutoff_days or 0 }} days before</div>
+</div>
+
+<h2>Roster</h2>
+<div class="table-wrap"><table><thead><tr><th>Name</th><th>Age</th><th>Status</th><th>Invoice</th><th>Note</th><th></th></tr></thead><tbody>
+{% for b, c in roster %}<tr>
+  <td>{% if c %}<a href="/app/contacts/{{ c.id }}">{{ c.name }}</a>{% endif %}</td><td>{{ age_on(c, course_day) if c and c.birth_date else "" }}</td>
+  <td><span class="badge {{ 'paid' if b.status in ('booked', 'attended', 'passed') else ('cancelled' if b.status in ('cancelled', 'failed', 'no_show') else 'draft') }}">{{ b.status|replace("_", " ") }}</span></td>
+  <td>{% if b.invoice_id and invoices[b.invoice_id] %}<a href="/app/finance/invoices/{{ b.invoice_id }}">{{ invoices[b.invoice_id].reference }}</a> · {{ invoices[b.invoice_id].status }}{% endif %}</td>
+  <td class="muted" style="white-space:normal">{{ b.note or "" }}</td>
+  <td style="white-space:nowrap">{% if perms|can("training.write") %}
+    {% if b.status in ("booked", "attended", "no_show", "passed", "failed") %}
+    <form method="post" action="/app/training/{{ course.id }}/bookings/{{ b.id }}/outcome" style="margin:0;display:inline-flex;gap:.2rem"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <select name="outcome" aria-label="Outcome"><option>attended</option><option>passed</option><option>failed</option><option>no_show</option></select><button class="secondary" type="submit">Record</button></form>{% endif %}
+    {% if b.status in ("pending_payment", "booked", "waitlist") %}<form method="post" action="/app/training/{{ course.id }}/bookings/{{ b.id }}/cancel" style="margin:0;display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Cancel</button></form>{% endif %}
+  {% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">Nobody booked yet.</td></tr>{% endfor %}
+</tbody></table></div>
+
+{% if perms|can("training.write") and course.status == "open" %}
+<h2>Book someone on</h2>
+<form method="get" action="/app/training/{{ course.id }}" class="toolbar"><input type="search" name="q" value="{{ q }}" placeholder="Find a contact" aria-label="Find a contact"><button class="secondary" type="submit">Search</button></form>
+{% if matches %}<div class="table-wrap"><table><tbody>{% for c in matches %}<tr><td>{{ c.name }}</td><td>{{ c.email or "" }}</td>
+<td><form method="post" action="/app/training/{{ course.id }}/book" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="contact_id" value="{{ c.id }}"><button type="submit">Book on</button></form></td></tr>{% endfor %}</tbody></table></div>
+<p class="muted">Juniors need their parent's consent and emergency details first (the parent does this under My family).</p>{% endif %}
+{% endif %}
+
+{% if perms|can("training.write") %}
+<h2>Course details</h2>
+{% include "_course_form.html" %}
+{% if course.status != "cancelled" %}
+<form method="post" action="/app/training/{{ course.id }}/cancel-course" class="card form" style="max-width:680px;margin-top:1.5rem"><input type="hidden" name="csrf" value="{{ csrf }}"><strong>Cancel this course</strong>
+  <label>Reason (emailed to everyone booked)<input type="text" name="reason" required></label>
+  <label class="check"><input type="checkbox" name="confirm" value="1"> Cancel the course and refund everyone in full</label>
+  <button class="danger" type="submit">Cancel course</button></form>
+{% endif %}
+{% endif %}
+{% endblock %}

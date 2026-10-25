@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "_pager.html" import render_pager %}
+{% block title %}Invoices{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<div class="toolbar">
+  <div class="chips">{% for v, l in filters %}<a class="btn {{ '' if f.filter == v else 'secondary' }}" href="/app/finance?{{ (params | combine({'filter': v})) | urlencode }}">{{ l }}</a>{% endfor %}</div>
+  <span class="spacer"></span>
+  <a class="btn" href="/app/finance/new">New invoice</a>
+</div>
+<form method="get" action="/app/finance" class="toolbar filters">
+  <input type="hidden" name="filter" value="{{ f.filter }}"><input type="hidden" name="view" value="{{ f.view }}">
+  <input type="search" name="q" value="{{ f.q }}" placeholder="Number or name" aria-label="Search invoices">
+  <label class="inline">From <input type="date" name="date_from" value="{{ f.date_from.isoformat() if f.date_from else '' }}"></label>
+  <label class="inline">To <input type="date" name="date_to" value="{{ f.date_to.isoformat() if f.date_to else '' }}"></label>
+  <select name="nominal" aria-label="Nominal code"><option value="">Any nominal</option>{% for c in nominals %}<option value="{{ c.code }}" {{ "selected" if f.nominal == c.code }}>{{ c.code }} {{ c.label }}</option>{% endfor %}</select>
+  <select name="source" aria-label="What it is for"><option value="">Any kind</option>{% for s in sources %}<option value="{{ s }}" {{ "selected" if f.source == s }}>{{ s|replace("_", " ")|capitalize }}</option>{% endfor %}</select>
+  <input type="text" name="tag" value="{{ f.tag }}" placeholder="Tag" aria-label="Tag" style="width:7rem">
+  <button type="submit" class="secondary">Filter</button>
+  {% if params|length > (1 if f.filter != "all" else 0) %}<a href="/app/finance?filter={{ f.filter }}">Clear</a>{% endif %}
+  <span class="spacer"></span>
+  <a class="btn secondary" href="/app/finance?{{ (params | combine({'view': 'lines' if f.view == 'invoices' else 'invoices'})) | urlencode }}">{{ "Line by line" if f.view == "invoices" else "Invoice list" }}</a>
+</form>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+
+{% if f.view == "lines" %}
+<div class="table-wrap"><table>
+<thead><tr><th>Date</th><th>Number</th><th>Contact</th><th>Description</th><th>Nominal</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th><th>Status</th></tr></thead>
+<tbody>
+{% for r in line_rows %}{% set l = r.line %}{% set i = r.invoice %}
+<tr><td>{{ i.issue_date|dmy }}</td><td><a href="/app/finance/invoices/{{ i.id }}">{{ i.reference }}</a></td><td>{{ r.name }}</td><td style="white-space:normal">{{ l.description }}</td><td>{{ l.nominal_code or "" }}</td>
+<td class="num">{{ "%g"|format(l.quantity) if l.quantity is not none else "" }}</td><td class="num">{{ l.unit_price_minor|gbp if l.unit_price_minor is not none else "" }}</td><td class="num">{{ l.amount_minor|gbp }}</td><td><span class="badge {{ i.status }}">{{ i.status|status_label }}</span></td></tr>
+{% else %}<tr><td colspan="9" class="muted">No lines match.</td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}
+<form method="post" action="/app/finance/bulk" id="bulk">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="/app/finance?{{ params|urlencode }}">
+<div class="table-wrap"><table>
+<thead><tr><th style="width:2rem"><input type="checkbox" aria-label="Tick every invoice on this page" data-check-all="#bulk .pick-row"></th><th>Number</th><th>Date</th><th>Contact</th><th>Status</th><th class="num">Total</th><th class="num">Outstanding</th><th>Due</th><th>Chased</th></tr></thead>
+<tbody>
+{% for r in table %}{% set i = r.invoice %}
+<tr><td><input type="checkbox" name="invoice" value="{{ i.id }}" class="pick-row" aria-label="Tick invoice {{ i.reference }}"></td>
+<td><a href="/app/finance/invoices/{{ i.id }}">{{ i.reference }}</a>{% if i.kind == "credit_note" %} <span class="muted">(credit)</span>{% endif %}{% if i.tags %} <span class="muted" title="Tags">· {{ i.tags }}</span>{% endif %}</td>
+<td>{{ i.issue_date|dmy }}</td><td>{{ r.name }}</td><td><span class="badge {{ i.status }}">{{ i.status|status_label }}</span></td>
+<td class="num">{{ i.amount_minor|gbp }}</td><td class="num">{{ r.outstanding|gbp if r.outstanding else "" }}</td>
+<td class="{{ 'overdue' if r.outstanding and i.due_date and i.due_date < today else '' }}">{{ i.due_date|dmy }}</td><td class="muted">{{ r.reminded|dmy if r.reminded else "" }}</td></tr>
+{% else %}<tr><td colspan="9" class="muted">No invoices match.</td></tr>{% endfor %}
+</tbody>
+{% if totals and totals.count %}<tfoot><tr><td></td><td colspan="4"><strong>{{ totals.count }} invoice{{ "" if totals.count == 1 else "s" }} match</strong></td><td class="num"><strong>{{ totals.billed|gbp }}</strong></td><td class="num"><strong>{{ totals.outstanding|gbp }}</strong></td><td colspan="2"></td></tr></tfoot>{% endif %}
+</table></div>
+{% if perms|can("finance.write") %}
+<div class="toolbar">
+  <span class="muted">With the ticked invoices:</span>
+  <button type="submit" name="action" value="remind" class="secondary">Send reminders</button>
+  <button type="submit" name="action" value="email" class="secondary">Email them</button>
+  <button type="submit" name="action" value="pdf" class="secondary">Download PDFs</button>
+  <button type="submit" name="action" value="csv" class="secondary">Export CSV</button>
+</div>
+{% endif %}
+</form>
+{% endif %}
+{{ render_pager(pager, "/app/finance", params, none) }}
+{% endblock %}

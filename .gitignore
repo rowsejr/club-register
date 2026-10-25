@@ -1,0 +1,19 @@
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.egg-info/
+node_modules/
+
+# Local data: never commit (it holds people's details)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+backups/
+.coverage
+.env
+.venv/

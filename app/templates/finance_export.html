@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Export{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<h2>Export for the accounts</h2>
+<p class="muted">CSV files for the treasurer's spreadsheet or accounts package. Invoice lines carry their nominal code; the VAT column is zero while the club is not VAT registered.</p>
+<form method="get" class="form" style="max-width:520px" id="range">
+  <div class="row"><label>From<input type="date" name="start" value="{{ start }}"></label><label>To<input type="date" name="end" value="{{ end }}"></label></div>
+  <div class="actions">
+    <button type="submit" formaction="/app/finance/export/lines.csv">Invoice lines (CSV)</button>
+    <button type="submit" formaction="/app/finance/export/payments.csv" class="secondary">Payments received (CSV)</button>
+    <a class="btn secondary" href="/app/finance/debtors.csv">Aged debtors (CSV)</a>
+  </div>
+</form>
+{% endblock %}

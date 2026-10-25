@@ -1,0 +1,8 @@
+<nav class="subnav" aria-label="Training">
+  <a href="/app/training" class="{{ 'active' if sub == 'courses' }}">Courses</a>
+  {% if perms|can("training.write") %}<a href="/app/training/new" class="{{ 'active' if sub == 'new' }}">New course</a>{% endif %}
+  <a href="/app/training/qualifications" class="{{ 'active' if sub == 'qualifications' }}">Qualifications</a>
+  <a href="/courses" target="_blank" rel="noopener">Public course list</a>
+</nav>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}

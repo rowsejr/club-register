@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Application from {{ application.name }}{% endblock %}
+{% block content %}
+<h1>New members</h1>
+{% set sub = "applications" %}{% include "_people_nav.html" %}
+<div class="toolbar"><h2 style="margin:0">{{ application.name }} <span class="badge {{ 'paid' if application.status == 'completed' else ('cancelled' if application.status in ('rejected', 'withdrawn') else 'draft') }}">{{ application.status|replace("_", " ") }}</span></h2></div>
+<div class="cards" style="margin-bottom:1rem">
+  <div class="card"><div class="label">Email</div>{{ application.email or "—" }}</div>
+  <div class="card"><div class="label">Phone</div>{{ application.phone or "—" }}</div>
+  <div class="card"><div class="label">Date of birth</div>{{ application.birth_date|dmy or "—" }}</div>
+  <div class="card"><div class="label">Membership</div>{{ mtype.name if mtype else "not chosen" }}{% if mtype and mtype.fee_minor is not none %} · {{ mtype.fee_minor|gbp }}{% endif %}</div>
+  <div class="card"><div class="label">Received</div>{{ application.submitted_at|dmy }} · {{ application.source }}</div>
+</div>
+{% if application.address %}<div class="card" style="margin-bottom:.6rem"><div class="label">Address</div>{{ application.address }}</div>{% endif %}
+{% if application.experience %}<div class="card" style="margin-bottom:.6rem;white-space:pre-wrap"><div class="label">Sailing experience</div>{{ application.experience }}</div>{% endif %}
+{% if application.notes %}<div class="card" style="margin-bottom:.6rem;white-space:pre-wrap"><div class="label">Notes</div>{{ application.notes }}</div>{% endif %}
+{% if people %}<h2>Also on this membership</h2><div class="table-wrap"><table><tbody>{% for p in people %}<tr><td>{{ p.name }}</td><td>{{ p.role }}</td><td>{{ p.email or "" }}</td><td>{{ p.birth_date|dmy }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if existing %}<div class="alert info" style="margin-top:1rem">This email already belongs to <a href="/app/contacts/{{ existing.id }}">{{ existing.name }}</a>{% if existing.member_id %} (has a member record){% endif %}: their details will be reused.</div>{% endif %}
+<p class="muted">Consent: rules agreed {{ application.rules_agreed_at|dmy or "no" }} · privacy accepted {{ application.consent_at|dmy or "no" }} · marketing emails {{ "yes" if application.consent_marketing else "no" }}</p>
+{% if application.decision_note %}<div class="alert info"><strong>{{ application.decided_by or "" }}:</strong> {{ application.decision_note }}</div>{% endif %}
+
+{% if application.status in pending %}
+<div class="cards" style="margin-top:1rem">
+  <form method="post" action="/app/applications/{{ application.id }}/approve" class="card form"><input type="hidden" name="csrf" value="{{ csrf }}"><strong>Approve</strong>
+    <label>Membership<select name="membership_type">{% for t in types %}<option value="{{ t.id }}" {{ "selected" if mtype and mtype.id == t.id }}>{{ t.name }}{% if t.fee_minor is not none %} · {{ t.fee_minor|gbp }}{% else %} · no fee set{% endif %}</option>{% endfor %}</select></label>
+    <label>Note (optional)<input type="text" name="note"></label>
+    <button type="submit">Approve and issue first invoice</button><span class="muted">They are emailed the invoice and become members when it is paid.</span></form>
+  <form method="post" action="/app/applications/{{ application.id }}/info" class="card form"><input type="hidden" name="csrf" value="{{ csrf }}"><strong>Ask a question</strong>
+    <label>What do you need to know?<textarea name="note" rows="3" required></textarea></label><button class="secondary" type="submit" {{ "disabled" if not application.email }}>Email the applicant</button></form>
+  <form method="post" action="/app/applications/{{ application.id }}/reject" class="card form"><input type="hidden" name="csrf" value="{{ csrf }}"><strong>Reject</strong>
+    <label>Reason (kept on the record)<input type="text" name="note" required></label><button class="danger" type="submit">Reject</button></form>
+</div>
+{% endif %}
+{% if application.status == "approved" or application.status in pending %}
+<form method="post" action="/app/applications/{{ application.id }}/withdraw" style="margin-top:1rem"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Withdraw application{{ " (voids the unpaid invoice)" if invoice }}</button></form>
+{% endif %}
+{% if invoice %}<h2>First invoice</h2><p><a href="/app/finance/invoices/{{ invoice.id }}">Invoice {{ invoice.reference }}</a> · {{ invoice.amount_minor|gbp }} · <span class="badge {{ invoice.status }}">{{ invoice.status }}</span></p>{% endif %}
+{% if member %}<p>Member record: <a href="/app/members/{{ member.id }}">{{ member.name }}</a>{% if member.membership_number %} · no. {{ member.membership_number }}{% endif %}</p>{% endif %}
+{% endblock %}

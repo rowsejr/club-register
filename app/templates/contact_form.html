@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ contact.name if contact else "New contact" }}{% endblock %}
+{% block content %}
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if saved %}<div class="alert ok" role="status">Saved.</div>{% endif %}
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+
+{% if contact and p %}
+{% set member = p.member %}
+<div class="toolbar">
+  <h1 style="margin:0">{{ contact.name }}</h1>
+  {% if member %}<span class="badge {{ 'active' if member.active else 'inactive' }}">{{ member.renewal_status }}</span>{% if member.membership_type and member.membership_type != "standard" %}<span class="badge">{{ member.membership_type }}</span>{% endif %}{% if member.membership_number %}<span class="muted">no. {{ member.membership_number }}</span>{% endif %}{% else %}<span class="badge">not a member</span>{% endif %}
+  {% if p.age is not none %}<span class="muted">{{ p.age }} years old{% if p.age < 18 %} · junior{% endif %}</span>{% endif %}
+  {% if contact.suppressed %}<span class="badge cancelled">not to be emailed</span>{% endif %}
+  <span class="spacer"></span>
+  {% if perms|can("finance.write") %}<a class="btn" href="/app/finance/new?contact_id={{ contact.id }}">New invoice</a>{% endif %}
+</div>
+<div class="cards" style="margin:.8rem 0">
+  <div class="card"><div class="label">Owes the club</div><div class="metric {{ 'warn' if p.balance }}">{{ p.balance|gbp }}</div></div>
+  <div class="card"><div class="label">Paid to date</div><div class="metric">{{ p.paid_total|gbp }}</div></div>
+  <div class="card"><div class="label">Memberships</div><div class="metric">{{ p.memberships|length }}</div></div>
+  <div class="card"><div class="label">Boats</div><div class="metric">{{ p.boats|length }}</div></div>
+</div>
+<div class="contact-contact">
+  {% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% else %}<span class="muted">no email</span>{% endif %}
+  {% if contact.phone %} · {{ contact.phone }}{% endif %}{% for n in (contact.phones_extra or "").splitlines() %} · {{ n }}{% endfor %}
+  {% if contact.address %}<div class="muted">{{ contact.address }}</div>{% endif %}{% for a in (contact.addresses_extra or "").splitlines() %}<div class="muted">{{ a }}</div>{% endfor %}
+</div>
+
+<h2>Tags and lists</h2>
+<div class="card">
+  <div>{% for t in p.tags %}<span class="chip">{{ t }}{% if perms|can("members.write") %}<form method="post" action="/app/contacts/{{ contact.id }}/tags/remove" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="tag" value="{{ t }}"><button class="chip-x" type="submit" aria-label="Remove tag {{ t }}">×</button></form>{% endif %}</span> {% else %}<span class="muted">No tags.</span>{% endfor %}</div>
+  {% if perms|can("members.write") %}<form method="post" action="/app/contacts/{{ contact.id }}/tags" class="toolbar" style="margin:.4rem 0 0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="tag" list="known-tags" placeholder="Add a tag" aria-label="Add a tag" style="width:12rem"><datalist id="known-tags">{% for t, n in known_tags %}<option value="{{ t }}">{% endfor %}</datalist><button type="submit" class="secondary">Add</button></form>{% endif %}
+  <div style="margin-top:.6rem">Lists: {% for l in p.lists %}<a class="chip" href="/app/lists/{{ l.id }}">{{ l.name }}</a>{% if perms|can("members.write") %}<form method="post" action="/app/contacts/{{ contact.id }}/lists/{{ l.id }}/remove" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip-x" type="submit" aria-label="Take off list {{ l.name }}">×</button></form>{% endif %} {% else %}<span class="muted">none</span>{% endfor %}</div>
+  {% if perms|can("members.write") and all_lists %}<form method="post" action="/app/contacts/{{ contact.id }}/lists" class="toolbar" style="margin:.4rem 0 0"><input type="hidden" name="csrf" value="{{ csrf }}"><select name="list_id" aria-label="Add to a list">{% for l in all_lists %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}</select><button type="submit" class="secondary">Add to list</button></form>{% endif %}
+</div>
+
+<h2>Membership</h2>
+<div class="table-wrap"><table><thead><tr><th>Type</th><th>From</th><th>To</th><th>Status</th></tr></thead><tbody>
+{% for m in p.memberships %}<tr><td>{{ m.plan_name }}</td><td>{{ m.starts_on|dmy }}</td><td>{{ m.ends_on|dmy }}</td><td><span class="badge {{ 'active' if m.status == 'active' else 'inactive' }}">{{ m.status.replace("_", " ") }}</span></td></tr>
+{% else %}<tr><td colspan="4" class="muted">No memberships.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if member %}<p><a href="/app/members/{{ member.id }}">Edit the member record</a></p>{% endif %}
+
+<h2>Household</h2>
+<div class="card">
+  {% if p.household.others %}
+  <ul style="margin:0 0 .5rem 1rem">{% for relation, other in p.household.others %}<li><a href="/app/contacts/{{ other.id }}">{{ other.name }}</a> <span class="muted">({{ relation }}{% if other.member_id %}, member{% endif %})</span>
+    {% if perms|can("members.write") %}<form method="post" action="/app/contacts/{{ contact.id }}/household/{{ other.id }}/remove" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip-x" type="submit" aria-label="Unlink {{ other.name }}">×</button></form>{% endif %}</li>{% endfor %}</ul>
+  {% if p.household.payer and p.household.payer.id != contact.id %}<p class="muted">Invoices for this household go to <a href="/app/contacts/{{ p.household.payer.id }}">{{ p.household.payer.name }}</a>.</p>{% endif %}
+  {% else %}<span class="muted">Not linked to anyone.</span>{% endif %}
+  {% if perms|can("members.write") %}<form method="post" action="/app/contacts/{{ contact.id }}/household" class="toolbar" style="margin:.4rem 0 0"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="number" name="other_id" min="1" placeholder="Their contact number" aria-label="Contact number of the other person" style="width:11rem" required>
+    <select name="relation" aria-label="Relationship">{% for r in ["partner", "child", "parent", "guardian", "other"] %}<option>{{ r }}</option>{% endfor %}</select>
+    <button type="submit" class="secondary">Link</button><span class="muted">(the number is in the address of their page)</span></form>{% endif %}
+</div>
+
+<h2>Boats and spaces</h2>
+<div class="table-wrap"><table><thead><tr><th>Boat</th><th>Class</th><th>Sail no.</th><th>Space</th></tr></thead><tbody>
+{% for b, space in p.boats %}<tr><td><a href="/app/boats/{{ b.id }}">{{ b.name }}</a></td><td>{{ b.boat_class }}</td><td>{{ b.sail_number }}</td><td>{{ space.name if space else "none" }}</td></tr>{% else %}<tr><td colspan="4" class="muted">No boats.</td></tr>{% endfor %}
+</tbody></table></div>
+
+<h2>Training</h2>
+<div class="table-wrap"><table><thead><tr><th>Course</th><th>Starts</th><th>Status</th></tr></thead><tbody>
+{% for b, course in p.bookings %}<tr><td>{{ course.name if course else "?" }}</td><td>{{ course.starts_at|dmy if course else "" }}</td><td>{{ b.status }}</td></tr>{% else %}<tr><td colspan="3" class="muted">No bookings.</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Qualification</th><th>Level</th><th>Issued</th><th>Expires</th></tr></thead><tbody>
+{% for q in p.qualifications %}<tr><td>{{ q.name }}</td><td>{{ q.level or "" }}</td><td>{{ q.issued_on|dmy }}</td><td>{{ q.expires_on|dmy }}</td></tr>{% else %}<tr><td colspan="4" class="muted">No qualifications recorded.</td></tr>{% endfor %}
+</tbody></table></div>
+
+<h2>Invoices</h2>
+<div class="table-wrap"><table><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="num">Total</th><th>Due</th></tr></thead><tbody>
+{% for i in p.invoices[:25] %}<tr><td><a href="/app/finance/invoices/{{ i.id }}">{{ i.reference }}</a></td><td>{{ i.issue_date|dmy }}</td><td><span class="badge {{ i.status }}">{{ i.status|status_label }}</span></td><td class="num">{{ i.amount_minor|gbp }}</td><td>{{ i.due_date|dmy }}</td></tr>{% else %}<tr><td colspan="5" class="muted">No invoices.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if p.invoices|length > 25 %}<p class="muted">The latest 25 of {{ p.invoices|length }}. <a href="/app/finance?q={{ contact.name|urlencode }}">See them all</a></p>{% endif %}
+
+{% if perms|can("finance.read") %}<div hx-get="/app/contacts/{{ contact.id }}/extras" hx-trigger="load" hx-swap="outerHTML"></div>{% endif %}
+
+<h2>Emails sent to them</h2>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead><tbody>
+{% for e in p.emails %}<tr><td>{{ e.created_at|dmy }}</td><td style="white-space:normal">{{ e.subject }}</td><td>{{ e.status }}</td></tr>{% else %}<tr><td colspan="3" class="muted">Nothing sent.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+
+<h2 id="details">{{ "Details" if contact else "New contact" }}</h2>
+<form class="form" method="post" action="{{ '/app/contacts/' ~ contact.id if contact else '/app/contacts' }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Name<input type="text" name="name" value="{{ v.name }}" required></label>
+  <div class="row">
+    <label>Email<input type="email" name="email" value="{{ v.email }}"></label>
+    <label>Phone<input type="text" name="phone" value="{{ v.phone }}"></label>
+  </div>
+  <label>Address<textarea name="address" rows="3">{{ v.address }}</textarea></label>
+  <label>Date of birth<input type="date" name="birth_date" value="{{ v.birth_date }}"></label>
+  <label>Notes<textarea name="notes" rows="4">{{ v.notes }}</textarea></label>
+  <label class="check"><input type="checkbox" name="suppressed" value="1" {{ "checked" if v.suppressed }}> Suppress from mailings</label>
+  <div class="actions"><button type="submit">Save</button><a class="btn secondary" href="/app/contacts">Back</a></div>
+</form>
+
+{% if contact %}
+<h2>Privacy</h2>
+<div class="card">
+  <a class="btn secondary" href="/app/contacts/{{ contact.id }}/export.json">Download everything we hold (JSON)</a>
+  {% if role == "Admin" %}
+  <form method="post" action="/app/contacts/{{ contact.id }}/erase" class="toolbar" style="margin:.8rem 0 0">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="text" name="confirm" placeholder="Type ERASE to confirm" aria-label="Type ERASE to confirm">
+    <button class="danger" type="submit">Erase personal data</button>
+    <span class="muted">Anonymises this person everywhere. Invoices and payments are kept (financial records), without their name.</span>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Events{% endblock %}
+{% block content %}
+<h1>What is on at {{ club }}</h1>
+<p class="muted">Open to visitors unless it says otherwise. <a href="/events.ics">Add our calendar to your phone or computer</a>.</p>
+{% for e in upcoming %}<div class="card" style="margin-bottom:.8rem"><div class="toolbar" style="margin:0"><strong style="font-size:1.1rem"><a href="/whats-on/{{ e.id }}">{{ e.title }}</a></strong><span class="spacer"></span>
+  {% if e.bookable %}{% if avail[e.id].sold_out %}<span class="badge cancelled">sold out</span>{% elif on_sale[e.id] %}<a class="btn" href="/whats-on/{{ e.id }}">Tickets</a>{% endif %}{% endif %}</div>
+  <div class="muted">{{ e.start_at|local("%A %d %B %Y, %H:%M") }}{% if e.location %} · {{ e.location }}{% endif %}</div>
+  {% if e.description %}<p style="white-space:pre-wrap;margin:.4rem 0 0">{{ e.description }}</p>{% endif %}</div>
+{% else %}<p class="muted">Nothing is scheduled just now. Please check back soon.</p>{% endfor %}
+{% endblock %}

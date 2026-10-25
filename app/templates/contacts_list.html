@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_people_filters.html" import filter_bar, saved_views %}
+{% block title %}Contacts{% endblock %}
+{% block content %}
+<h1>Contacts</h1>
+<div class="toolbar">
+  {{ filter_bar(f, ch, "/app/contacts", contacts=True) }}
+  <span class="spacer"></span>
+  <a class="btn secondary" href="/app/contacts.csv?{{ f.as_params()|urlencode }}">Export CSV</a>
+  <a class="btn secondary" href="/app/lists">Lists and tags</a>
+  <a class="btn secondary" href="/app/people/issues">Data check</a>
+  <a class="btn" href="/app/contacts/new">New contact</a>
+</div>
+{{ saved_views(views, "contacts", f, csrf, perms|can("members.write")) }}
+<div id="results">{% include "_contacts_table.html" %}</div>
+{% endblock %}

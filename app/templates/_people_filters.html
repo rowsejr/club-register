@@ -1,0 +1,24 @@
+{# The filter bar shared by Members and Contacts. `f` is a PeopleFilter, `ch` the dropdown choices, `base` the page path. #}
+{% macro filter_bar(f, ch, base, contacts=False) %}
+<form method="get" action="{{ base }}" class="toolbar filters" hx-get="{{ base }}" hx-target="#results" hx-push-url="true" hx-trigger="input changed delay:300ms from:find input, change from:find select, submit">
+  <input type="search" name="q" value="{{ f.q }}" placeholder="{{ 'Search name, email or phone' if contacts else 'Search name, email or number' }}" aria-label="Search">
+  {% if contacts %}<select name="member" aria-label="Member"><option value="">Member or not</option><option value="yes" {{ "selected" if f.member == "yes" }}>Members</option><option value="no" {{ "selected" if f.member == "no" }}>Not members</option></select>{% endif %}
+  <select name="status" aria-label="Status">{% for v, l in ch.statuses %}<option value="{{ v }}" {{ "selected" if f.status == v }}>{{ l }}</option>{% endfor %}</select>
+  <select name="type" aria-label="Membership type"><option value="">Any type</option>{% for t in ch.types %}<option value="{{ t }}" {{ "selected" if f.type == t }}>{{ t }}</option>{% endfor %}</select>
+  <select name="age" aria-label="Age">{% for v, l in ch.ages %}<option value="{{ v }}" {{ "selected" if f.age == v }}>{{ l }}</option>{% endfor %}</select>
+  <select name="list" aria-label="List"><option value="">Any list</option>{% for l in ch.lists %}<option value="{{ l }}" {{ "selected" if f.list == l }}>{{ l }}</option>{% endfor %}</select>
+  <select name="tag" aria-label="Tag"><option value="">Any tag</option>{% for t in ch.tags %}<option value="{{ t }}" {{ "selected" if f.tag == t }}>{{ t }}</option>{% endfor %}</select>
+  <select name="boat" aria-label="Has a boat">{% for v, l in ch.yes_no %}<option value="{{ v }}" {{ "selected" if f.boat == v }}>{{ "Boat: " + l if v else "Has a boat?" }}</option>{% endfor %}</select>
+  <select name="unpaid" aria-label="Owes money">{% for v, l in ch.yes_no %}<option value="{{ v }}" {{ "selected" if f.unpaid == v }}>{{ "Owes: " + l if v else "Owes money?" }}</option>{% endfor %}</select>
+  <noscript><button type="submit">Filter</button></noscript>
+  {% if f.active_filters or f.q %}<a href="{{ base }}">Clear</a>{% endif %}
+</form>
+{% endmacro %}
+
+{# Saved views: pick one to apply it, or keep the current filter under a name. `views` and `scope` come from the page. #}
+{% macro saved_views(views, scope, f, csrf, can_save) %}
+<div class="toolbar no-print" style="margin:.2rem 0 .6rem">
+  {% if views %}<span class="muted">Views:</span>{% for v in views %}<a class="chip" href="/app/{{ scope }}?{{ v.query }}">{{ v.name }}</a><form method="post" action="/app/views/{{ v.id }}/delete" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="/app/{{ scope }}"><button class="chip-x" type="submit" aria-label="Delete view {{ v.name }}">×</button></form> {% endfor %}{% endif %}
+  {% if can_save and f.as_params() %}<form method="post" action="/app/views" class="toolbar" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="scope" value="{{ scope }}"><input type="hidden" name="query" value="{{ f.as_params()|urlencode }}"><input type="text" name="name" placeholder="Save this filter as…" aria-label="Name for this view" style="width:12rem"><button type="submit" class="secondary">Save view</button></form>{% endif %}
+</div>
+{% endmacro %}

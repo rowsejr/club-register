@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Storage billing{% endblock %}
+{% block content %}
+<h1>Boats and berths</h1>
+{% include "_boats_nav.html" %}
+<div class="toolbar"><h2 style="margin:0">Storage billing {{ year }}</h2><span class="spacer"></span><a class="btn secondary" href="/app/storage/billing?year={{ year - 1 }}">← {{ year - 1 }}</a><a class="btn secondary" href="/app/storage/billing?year={{ year + 1 }}">{{ year + 1 }} →</a></div>
+<p class="muted">One invoice per owner with a line for each space. Safe to repeat: spaces already billed (and not voided) are skipped. Fees come from <a href="/app/storage/tariffs?year={{ year }}">storage fees</a>.</p>
+<div class="cards" style="margin-bottom:1rem">
+  <div class="card"><div class="metric">{{ summary.due }}</div><div class="label">spaces to bill</div></div>
+  <div class="card"><div class="metric">{{ summary.total|gbp }}</div><div class="label">to be billed</div></div>
+  <div class="card"><div class="metric">{{ summary.billed }}</div><div class="label">already billed</div></div>
+  <div class="card"><div class="metric {{ 'warn' if summary.attention }}">{{ summary.attention }}</div><div class="label">need attention</div></div>
+</div>
+<form method="post" action="/app/storage/billing/{{ year }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="table-wrap"><table><thead><tr><th></th><th>Boat</th><th>Space</th><th>Owner</th><th class="num">Fee</th><th>State</th></tr></thead><tbody>
+  {% for r in rows %}<tr>
+    <td>{% if not r.billed and not r.note and r.fee_minor %}<input type="checkbox" name="allocation" value="{{ r.allocation.id }}" aria-label="Select {{ r.boat.name }}">{% endif %}</td>
+    <td><a href="/app/boats/{{ r.boat.id }}">{{ r.boat.name }}</a></td><td>{{ r.resource.name }}</td><td>{{ r.payer.name if r.payer else "—" }}</td><td class="num">{{ r.fee_minor|gbp if r.fee_minor is not none else "—" }}</td>
+    <td>{% if r.billed %}<span class="badge paid">billed</span>{% elif r.note %}<span class="badge fail">{{ r.note }}</span>{% else %}<span class="badge draft">to bill</span>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="6" class="muted">No spaces are allocated in {{ year }}.</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% if perms|can("storage.bill") and rows %}
+  <div class="actions" style="margin-top:.8rem">
+    <button type="submit">Bill the ticked boats</button>
+    <button type="submit" name="everyone" value="1" class="secondary" data-confirm="Bill every space listed as to bill ({{ summary.due }} spaces, about {{ summary.total|gbp }})?">Bill everyone listed</button>
+    <label class="check" style="font-weight:400"><input type="checkbox" name="draft" value="1"> create as drafts to review first</label></div>
+  {% endif %}
+</form>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ "Credit note" if invoice.kind == "credit_note" else "Invoice" }} {{ invoice.reference }}{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<div class="toolbar">
+  <h2 style="margin:0">{{ "Credit note" if invoice.kind == "credit_note" else "Invoice" }} {{ invoice.reference if invoice.status != "draft" else "(draft)" }}
+    <span class="badge {{ invoice.status }}">{{ invoice.status|status_label }}</span></h2>
+  <span class="spacer"></span>
+  {% if invoice.status == "draft" and perms|can("finance.write") %}<a class="btn" href="/app/finance/invoices/{{ invoice.id }}/edit">Edit draft</a>{% endif %}
+  {% if invoice.kind != "credit_note" and perms|can("finance.write") %}<form method="post" action="/app/finance/invoices/{{ invoice.id }}/duplicate" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit" title="Start a new draft with the same lines">Duplicate</button></form>{% endif %}
+  <a class="btn secondary" href="/app/finance/invoices/{{ invoice.id }}.pdf" target="_blank" rel="noopener">PDF</a>
+  {% if invoice.status != "draft" and contact and contact.email %}
+  <form method="post" action="/app/finance/invoices/{{ invoice.id }}/email" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Email to {{ contact.email }}</button></form>
+  {% endif %}
+</div>
+<div class="cards" style="margin-bottom:1rem">
+  <div class="card"><div class="label">Bill to</div>{% if contact %}<a href="/app/contacts/{{ contact.id }}">{{ contact.name }}</a>{% else %}—{% endif %}</div>
+  <div class="card"><div class="label">Issued</div>{{ invoice.issue_date|dmy or "—" }}</div>
+  <div class="card"><div class="label">Due</div>{{ invoice.due_date|dmy or "—" }}</div>
+  <div class="card"><div class="label">Total</div><div class="metric" style="font-size:1.4rem">{{ invoice.amount_minor|gbp }}</div></div>
+  <div class="card"><div class="label">Outstanding</div><div class="metric {{ 'warn' if outstanding }}" style="font-size:1.4rem">{{ outstanding|gbp }}</div></div>
+</div>
+{% if invoice.message %}<p class="card" style="white-space:pre-wrap">{{ invoice.message }}</p>{% endif %}
+{% if invoice.tags or invoice.terms_days is not none %}<p class="muted">{% if invoice.tags %}Tags: {{ invoice.tags }}. {% endif %}{% if invoice.terms_days is not none %}Terms: {{ "due on receipt" if invoice.terms_days == 0 else invoice.terms_days ~ " days" }}. {% endif %}{{ "Reminders on." if invoice.send_reminders else "No overdue reminders." }} {{ "Thank-you on payment." if invoice.send_receipt else "" }}</p>{% endif %}
+{% if original %}<p>Credit against <a href="/app/finance/invoices/{{ original.id }}">invoice {{ original.reference }}</a>.</p>{% endif %}
+{% if credits %}<p>Credit notes: {% for c in credits %}<a href="/app/finance/invoices/{{ c.id }}">{{ c.reference }}</a> ({{ c.amount_minor|gbp }}){{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+
+<h2>Lines</h2>
+<div class="table-wrap"><table><thead><tr><th>Description</th><th>Nominal</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+{% for l in lines %}<tr><td style="white-space:normal">{{ l.description }}</td><td>{{ l.nominal_code or "" }}</td><td class="num">{{ "%g"|format(l.quantity) if l.quantity is not none else "" }}</td><td class="num">{{ l.unit_price_minor|gbp if l.unit_price_minor is not none else "" }}</td><td class="num">{{ l.amount_minor|gbp }}</td>
+<td>{% if invoice.status == "draft" %}<form method="post" action="/app/finance/invoices/{{ invoice.id }}/lines/{{ l.id }}/delete" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Remove</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No lines yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if invoice.status == "draft" %}
+<form method="post" action="/app/finance/invoices/{{ invoice.id }}/lines" class="toolbar" style="margin-top:.6rem">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="text" name="description" placeholder="Description" aria-label="Description" required style="flex:1;min-width:12rem">
+  <select name="nominal" aria-label="Nominal"><option value="">Nominal</option>{% for c in nominals %}<option value="{{ c.code }}">{{ c.code }} {{ c.label }}</option>{% endfor %}</select>
+  <input type="text" inputmode="decimal" name="amount" placeholder="£" aria-label="Amount" required style="width:6rem">
+  <button type="submit" class="secondary">Add line</button>
+</form>
+<form method="post" action="/app/finance/invoices/{{ invoice.id }}/issue" style="margin-top:.8rem"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">Issue invoice</button> <span class="muted">Gets the next invoice number and locks the lines.</span></form>
+{% endif %}
+
+{% if invoice.kind != "credit_note" %}<div hx-get="/app/finance/invoices/{{ invoice.id }}/online" hx-trigger="load" hx-swap="outerHTML"></div>{% endif %}
+<h2>Payments</h2>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="num">Amount</th><th>Status</th><th>By</th><th></th></tr></thead><tbody>
+{% for p in payments %}<tr><td>{{ p.received_at|dmy }}</td><td>{{ p.payment_method }}</td><td>{{ p.bank_reference }}{% if p.bank_entry_id %} <a href="/app/finance/bank/entries/{{ p.bank_entry_id }}">(bank line)</a>{% endif %}</td>
+<td class="num">{{ p.amount_minor|gbp }}</td><td><span class="badge {{ 'paid' if p.status == 'received' else 'cancelled' }}">{{ p.status }}</span></td><td>{{ p.recorded_by or "" }}</td>
+<td>{% if p.status == "received" and invoice.kind != "credit_note" %}<form method="post" action="/app/finance/payments/{{ p.id }}/reverse" style="margin:0;display:flex;gap:.3rem"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="reason" placeholder="Reason" aria-label="Reason" style="width:8rem"><button class="secondary" type="submit">Reverse</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">No payments.</td></tr>{% endfor %}
+</tbody></table></div>
+
+{% if invoice.status in ("issued", "part_paid") and invoice.kind != "credit_note" %}
+<h2>Record a payment</h2>
+<form method="post" action="/app/finance/invoices/{{ invoice.id }}/payment" class="toolbar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="text" inputmode="decimal" name="amount" value="{{ '%.2f' % (outstanding / 100) }}" aria-label="Amount" style="width:7rem" required>
+  <select name="method" aria-label="Method">{% for m in methods if m != "credit_note" %}<option>{{ m }}</option>{% endfor %}</select>
+  <input type="text" name="reference" placeholder="Bank reference" aria-label="Reference">
+  <input type="date" name="received_on" value="{{ today }}" aria-label="Date received">
+  <button type="submit">Record payment</button>
+</form>
+{% endif %}
+
+{% if invoice.status in ("issued", "part_paid", "paid") and invoice.kind != "credit_note" %}
+<h2>Adjustments</h2>
+<div class="cards">
+  <form method="post" action="/app/finance/invoices/{{ invoice.id }}/credit" class="card form">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><strong>Credit note</strong>
+    <label>Amount (£)<input type="text" inputmode="decimal" name="amount" required></label><label>Reason<input type="text" name="reason" required></label>
+    <button type="submit" class="secondary">Issue credit note</button>
+  </form>
+  {% if invoice.status in ("issued", "part_paid") %}
+  <form method="post" action="/app/finance/invoices/{{ invoice.id }}/write-off" class="card form">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><strong>Write off the {{ outstanding|gbp }} outstanding</strong>
+    <label>Reason<input type="text" name="reason" required></label><button type="submit" class="danger">Write off</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% if invoice.status in ("draft", "issued") %}
+<form method="post" action="/app/finance/invoices/{{ invoice.id }}/void" class="toolbar" style="margin-top:1rem">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="reason" placeholder="Reason for {{ 'cancelling' if invoice.status == 'draft' else 'voiding' }}" aria-label="Reason" required><button type="submit" class="danger">{{ "Cancel draft" if invoice.status == "draft" else "Void invoice" }}</button>
+</form>
+{% endif %}
+{% if invoice.notes %}<h2>Notes</h2><div class="card" style="white-space:pre-wrap">{{ invoice.notes }}</div>{% endif %}
+{% if emails %}<h2>Emails sent</h2><div class="table-wrap"><table><tbody>{% for e in emails %}<tr><td>{{ e.created_at|dmy }}</td><td>{{ e.subject }}</td><td>{{ e.to_address }}</td><td><span class="badge {{ 'paid' if e.status in ('sent','simulated') else 'fail' }}">{{ e.status }}</span></td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% endblock %}

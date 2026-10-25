@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Receipts and payments{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+{% include "_report_nav.html" %}
+<form method="get" action="/app/finance/reports/receipts-payments" class="toolbar no-print">
+  <label class="inline">From <input type="date" name="start" value="{{ start.isoformat() }}"></label>
+  <label class="inline">To <input type="date" name="end" value="{{ end.isoformat() }}"></label>
+  <button type="submit" class="secondary">Show</button>
+  <span class="spacer"></span>
+  <a class="btn secondary" href="/app/finance/reports/receipts-payments.csv?start={{ start }}&amp;end={{ end }}">Export CSV</a>
+  <button type="button" class="secondary" data-print>Print</button>
+</form>
+<h2>Receipts and payments account</h2>
+<p class="muted">{{ start|dmy }} to {{ end|dmy }}. Built from the bank lines, so it always ties to the statements. This is the account most small charities give their independent examiner.</p>
+<div class="table-wrap"><table class="report">
+<tbody>
+<tr class="strong"><td>Opening balance (all accounts)</td><td class="num">{{ rp.opening|gbp }}</td></tr>
+<tr><th colspan="2">Receipts</th></tr>
+{% for code, label, v in receipts %}<tr><td>&nbsp;&nbsp;{{ code }} {{ label }}</td><td class="num">{{ v|gbp }}</td></tr>{% else %}<tr><td colspan="2" class="muted">&nbsp;&nbsp;None</td></tr>{% endfor %}
+<tr class="strong"><td>Total receipts</td><td class="num">{{ rp.cash.total_receipts|gbp }}</td></tr>
+<tr><th colspan="2">Payments</th></tr>
+{% for code, label, v in payments %}<tr><td>&nbsp;&nbsp;{{ code }} {{ label }}</td><td class="num">{{ v|gbp }}</td></tr>{% else %}<tr><td colspan="2" class="muted">&nbsp;&nbsp;None</td></tr>{% endfor %}
+<tr class="strong"><td>Total payments</td><td class="num">{{ rp.cash.total_payments|gbp }}</td></tr>
+<tr><td>Transfers between club accounts (net)</td><td class="num">{{ (rp.cash.transfers_in - rp.cash.transfers_out)|gbp }}</td></tr>
+{% if rp.cash.waiting_in or rp.cash.waiting_out %}<tr class="warn-row"><td>Bank lines not yet matched or categorised (net)</td><td class="num">{{ (rp.cash.waiting_in - rp.cash.waiting_out)|gbp }}</td></tr>{% endif %}
+<tr class="strong"><td>Closing balance</td><td class="num">{{ rp.closing_actual|gbp }}</td></tr>
+</tbody></table></div>
+
+<h3>Bank reconciliation</h3>
+<div class="table-wrap"><table class="report"><thead><tr><th>Account</th><th class="num">Opening</th><th class="num">Closing (lines)</th><th class="num">Per statement</th><th class="num">Lines waiting</th><th></th></tr></thead><tbody>
+{% for p in rp.positions %}<tr><td>{{ p.account.name }}</td><td class="num">{{ p.opening|gbp }}</td><td class="num">{{ p.closing|gbp }}</td><td class="num">{{ p.statement|gbp if p.statement is not none else "n/a" }}</td><td class="num">{{ p.waiting }}</td>
+<td>{% if p.agrees %}<span class="badge paid">agrees</span>{% else %}<span class="badge cancelled">differs by {{ (p.statement - p.closing)|gbp }}</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{% if rp.difference %}<div class="alert error">The receipts and payments do not add up to the bank by {{ rp.difference|gbp }}.</div>{% else %}<p class="muted">Opening + receipts − payments + transfers + lines waiting = closing: it adds up.</p>{% endif %}
+{% endblock %}

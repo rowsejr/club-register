@@ -1,0 +1,12 @@
+<form class="form" method="post" action="{{ '/app/boats/' ~ boat.id if boat else '/app/boats' }}" style="max-width:640px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% if not boat and owner %}<input type="hidden" name="owner_contact_id" value="{{ owner.id }}">{% endif %}
+  <div class="row"><label>Name<input type="text" name="name" value="{{ boat.name if boat else '' }}"></label><label>Sail number<input type="text" name="sail_number" value="{{ boat.sail_number if boat else '' }}"></label></div>
+  <div class="row"><label>Design<input type="text" name="design" list="designs" value="{{ design.name if design else '' }}" placeholder="e.g. Mirror"><datalist id="designs">{% for d in designs %}<option value="{{ d.name }}">{% endfor %}</datalist></label>
+    <label>Class<input type="text" name="boat_class" value="{{ boat.boat_class if boat else '' }}"></label></div>
+  <div class="row"><label>Colour<input type="text" name="colour" value="{{ boat.colour or '' if boat else '' }}"></label><label>Portsmouth number<input type="text" name="portsmouth" inputmode="numeric" value="{{ boat.portsmouth_number or '' if boat else '' }}"></label></div>
+  <div class="row"><label>Insurance (insurer / policy)<input type="text" name="insurance" value="{{ boat.insurance or '' if boat else '' }}"></label><label>Insurance expires<input type="date" name="insurance_expiry" value="{{ boat.insurance_expiry.isoformat() if boat and boat.insurance_expiry else '' }}"></label></div>
+  <label>Notes<textarea name="notes" rows="3">{{ boat.notes or '' if boat else '' }}</textarea></label>
+  <label class="check"><input type="checkbox" name="club" value="1" {{ "checked" if (boat and boat.is_club_boat) or club }}> Club boat</label>
+  <div class="actions"><button type="submit">Save</button></div>
+</form>

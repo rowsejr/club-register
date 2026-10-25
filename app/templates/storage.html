@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Spaces{% endblock %}
+{% block content %}
+<h1>Boats and berths</h1>
+{% include "_boats_nav.html" %}
+<h2>Spaces today</h2>
+{% for group, items in groups.items() %}
+<h3 style="margin:1rem 0 .3rem">{{ group }}</h3>
+<div class="table-wrap"><table><thead><tr><th>Space</th><th>Capacity</th><th>In use</th><th>Boat</th></tr></thead><tbody>
+{% for it in items %}<tr><td>{{ it.resource.name }}{% if it.resource.active is false %} <span class="badge cancelled">not in use</span>{% endif %}</td><td>{{ it.resource.capacity or 1 }}</td>
+<td><span class="badge {{ 'paid' if it.used else 'draft' }}">{{ it.used }} / {{ it.resource.capacity or 1 }}</span></td><td>{% if it.boat %}<a href="/app/boats/{{ it.boat.id }}">{{ it.boat.name }}</a>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="muted">No spaces yet. Add one below.</p>{% endfor %}
+{% if perms|can("boats.write") %}
+<h2>Add a space</h2>
+<form method="post" action="/app/storage/resources" class="form" style="max-width:560px"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="row"><label>Name<input type="text" name="name" required placeholder="e.g. Boat Park Row C 7"></label><label>Type<input type="text" name="resource_type" value="berth" list="types"><datalist id="types"><option>berth</option><option>dinghy park</option><option>shed</option><option>locker</option><option>mooring</option></datalist></label></div>
+  <div class="row"><label>Group (sets the fee)<input type="text" name="group" placeholder="e.g. Boat Park Row C"></label><label>How many boats it holds<input type="number" name="capacity" min="1" value="1"></label></div>
+  <button type="submit">Add space</button></form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ invoice.reference }}{% endblock %}
+{% block content %}
+<p><a href="/app">← My account</a></p>
+<h1>{{ "Credit note" if invoice.kind == "credit_note" else "Invoice" }} {{ invoice.reference }} <span class="badge {{ invoice.status }}">{{ invoice.status }}</span></h1>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<div class="table-wrap"><table><thead><tr><th>Description</th><th class="num">Amount</th></tr></thead><tbody>
+{% for l in lines %}<tr><td style="white-space:normal">{{ l.description }}</td><td class="num">{{ l.amount_minor|gbp }}</td></tr>{% endfor %}
+<tr><th>Total</th><th class="num">{{ invoice.amount_minor|gbp }}</th></tr></tbody></table></div>
+{% if outstanding %}
+<div class="card" style="margin-top:1rem"><strong>To pay: {{ outstanding|gbp }}</strong>{% if invoice.due_date %} by {{ invoice.due_date|dmy }}{% endif %}
+  {% if settings.payment_instructions %}<p style="white-space:pre-wrap">{{ settings.payment_instructions }}</p>{% endif %}
+  {% if settings.bank_details %}<p style="white-space:pre-wrap"><code>{{ settings.bank_details }}</code></p>{% endif %}
+  <p><strong>Please use the reference:</strong> <code>{{ invoice.reference }}</code></p></div>
+{% if methods %}
+<div class="card" style="margin-top:1rem"><strong>Or pay online</strong>
+  {% for m in methods %}<form method="post" action="/app/me/invoices/{{ invoice.id }}/pay" style="margin:.6rem 0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="method" value="{{ m.key }}">
+    <button type="submit" class="{{ '' if loop.first else 'secondary' }}">Pay {{ outstanding|gbp }} by {{ m.label }}</button> <span class="muted">{{ m.note }}</span></form>{% endfor %}
+  {% if mode == "sandbox" %}<p class="muted">Demo site: these payments are pretend.</p>{% endif %}</div>
+{% endif %}
+{% elif invoice.status == "paid" %}<div class="alert ok" style="margin-top:1rem">Paid. Thank you.</div>{% endif %}
+<p><a class="btn secondary" href="/app/me/invoices/{{ invoice.id }}.pdf" target="_blank" rel="noopener">Download PDF</a></p>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ lst.name }}{% endblock %}
+{% block content %}
+<p><a href="/app/lists">← Lists and tags</a></p>
+<div class="toolbar"><h1 style="margin:0">{{ lst.name }}</h1><span class="spacer"></span><a class="btn secondary" href="/app/contacts?list={{ lst.name|urlencode }}">Open in Contacts (filter and export)</a><a class="btn" href="/app/mailings/new?list={{ lst.name|urlencode }}">Email this list</a></div>
+<div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Member</th></tr></thead><tbody>
+{% for c in members %}<tr><td><a href="/app/contacts/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.email or "" }}</td><td>{% if c.member_id %}yes{% endif %}</td></tr>{% else %}<tr><td colspan="3" class="muted">Nobody is on this list.</td></tr>{% endfor %}
+</tbody></table></div>
+<p class="muted">{{ members|length }} people.</p>
+{% endblock %}

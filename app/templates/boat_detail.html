@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ boat.name }}{% endblock %}
+{% block content %}
+<h1>Boats and berths</h1>
+{% include "_boats_nav.html" %}
+<div class="toolbar"><h2 style="margin:0">{{ boat.name }} <span class="badge {{ 'paid' if insurance == 'ok' else ('fail' if insurance in ('expired', 'unknown') else 'draft') }}">insurance {{ insurance }}</span>{% if boat.status != "active" %} <span class="badge cancelled">{{ boat.status }}</span>{% endif %}</h2></div>
+<div class="cards" style="margin-bottom:1rem">
+  <div class="card"><div class="label">Owner</div>{% if owner %}<a href="/app/contacts/{{ owner.id }}">{{ owner.name }}</a>{% else %}club{% endif %}</div>
+  <div class="card"><div class="label">Design</div>{{ design.name if design else "—" }}{% if boat.portsmouth_number %} · PN {{ boat.portsmouth_number }}{% endif %}</div>
+  <div class="card"><div class="label">Sail number</div>{{ boat.sail_number or "—" }}</div>
+  <div class="card"><div class="label">Insurance expires</div>{{ boat.insurance_expiry|dmy or "—" }}</div>
+</div>
+
+<h2>Space</h2>
+<div class="table-wrap"><table><thead><tr><th>Space</th><th>From</th><th>To</th><th>Fee</th><th>Status</th><th></th></tr></thead><tbody>
+{% for a, r in allocations %}<tr><td>{{ r.name }}</td><td>{{ a.start_date|dmy }}</td><td>{{ a.end_date|dmy }}</td><td>{{ a.fee_minor|gbp if a.fee_minor is not none else "tariff" }}</td>
+<td><span class="badge {{ 'paid' if a.status == 'active' else 'cancelled' }}">{{ a.status }}</span>{% if a.ended_reason %} <span class="muted">{{ a.ended_reason }}</span>{% endif %}</td>
+<td>{% if a.status == "active" and boat.status == "active" and perms|can("boats.write") %}<form method="post" action="/app/boats/{{ boat.id }}/allocations/{{ a.id }}/end" style="margin:0;display:flex;gap:.3rem"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="date" name="on" value="{{ today }}" aria-label="End date"><input type="text" name="reason" placeholder="Reason" aria-label="Reason" style="width:7rem"><button class="secondary" type="submit">Release</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No space allocated.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if boat.status == "active" and perms|can("boats.write") %}
+<div class="cards" style="margin-top:.8rem">
+  <form method="post" action="/app/boats/{{ boat.id }}/allocate" class="card form"><input type="hidden" name="csrf" value="{{ csrf }}"><strong>Give a space</strong>
+    <label>Space<select name="resource_id" required>{% for r in resources %}<option value="{{ r.id }}">{{ r.name }} ({{ r.resource_type }})</option>{% endfor %}</select></label>
+    <div class="row"><label>From<input type="date" name="start" required></label><label>To<input type="date" name="end" required></label></div>
+    <label>Fee override (£, optional)<input type="text" name="fee" inputmode="decimal"></label><button type="submit">Allocate</button></form>
+  <form method="post" action="/app/boats/{{ boat.id }}/move" class="card form"><input type="hidden" name="csrf" value="{{ csrf }}"><strong>Move to another space</strong>
+    <label>New space<select name="resource_id" required>{% for r in resources %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}</select></label>
+    <label>On<input type="date" name="on" value="{{ today }}" required></label><button class="secondary" type="submit">Move</button></form>
+</div>
+{% endif %}
+
+<h2>Details</h2>
+{% if perms|can("boats.write") %}{% include "_boat_form.html" %}{% else %}<p class="muted">You can view but not edit boats.</p>{% endif %}
+
+<h2>Owners and crew</h2>
+<div class="table-wrap"><table><tbody>
+{% if owner %}<tr><td><a href="/app/contacts/{{ owner.id }}">{{ owner.name }}</a></td><td>owner</td><td></td></tr>{% endif %}
+{% for link, c in co_owners %}<tr><td><a href="/app/contacts/{{ c.id }}">{{ c.name }}</a></td><td>{{ link.role }}</td>
+<td>{% if perms|can("boats.write") %}<form method="post" action="/app/boats/{{ boat.id }}/co-owners/{{ link.id }}/remove" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Remove</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{% if perms|can("boats.write") %}
+<form method="get" action="/app/boats/{{ boat.id }}" class="toolbar" style="margin-top:.6rem"><input type="search" name="q" value="{{ q }}" placeholder="Find someone to add or make the owner" aria-label="Find a contact"><button class="secondary" type="submit">Search</button></form>
+{% if matches %}<div class="table-wrap"><table><tbody>{% for c in matches %}<tr><td>{{ c.name }}</td><td>{{ c.email or "" }}</td>
+<td style="display:flex;gap:.3rem"><form method="post" action="/app/boats/{{ boat.id }}/co-owners" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="contact_id" value="{{ c.id }}"><button class="secondary" type="submit">Add as co-owner</button></form>
+<form method="post" action="/app/boats/{{ boat.id }}/owner" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="contact_id" value="{{ c.id }}"><button class="secondary" type="submit">Make owner</button></form></td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if boat.status == "active" %}
+<form method="post" action="/app/boats/{{ boat.id }}/archive" class="toolbar" style="margin-top:1rem"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="reason" placeholder="Why? e.g. sold" aria-label="Reason" required><button class="danger" type="submit">Archive boat</button><span class="muted">Releases any space it holds.</span></form>
+{% endif %}
+{% endif %}
+{% endblock %}

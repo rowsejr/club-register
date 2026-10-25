@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit draft invoice" if invoice else "New invoice" }}{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<div class="toolbar">
+  <h2 style="margin:0">{{ "Edit draft invoice" if invoice else "New invoice" }}</h2>
+  <span class="spacer"></span>
+  {% if not invoice %}<a href="/app/finance/new">Change person</a>{% endif %}
+</div>
+<form method="post" action="{{ action_url }}" class="builder" id="builder" data-terms-default="{{ v.terms }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="contact_id" value="{{ contact.id }}">
+  <div class="builder-head">
+    <div class="card"><div class="label">Bill to</div><a href="/app/contacts/{{ contact.id }}">{{ contact.name }}</a>
+      <div class="muted">{{ contact.email or "no email on file" }}{% if contact.address %} · {{ contact.address }}{% endif %}</div></div>
+    <label>Invoice date<input type="date" name="issue_date" id="issue_date" value="{{ v.issue_date }}"></label>
+    <label>Payment terms
+      <select name="terms_days" id="terms_days">
+        {% for days, label in [(0, "Due on receipt"), (7, "7 days"), (14, "14 days"), (30, "30 days"), (45, "45 days"), (60, "60 days")] %}<option value="{{ days }}" {{ "selected" if v.terms == days }}>{{ label }}</option>{% endfor %}
+      </select></label>
+    <div class="card"><div class="label">Due</div><div id="due_out" class="metric" style="font-size:1.1rem">—</div></div>
+  </div>
+
+  {% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+
+  <table class="builder-lines" id="lines">
+    <thead><tr><th style="width:15rem">From the price list</th><th>Description</th><th style="width:5rem">Qty</th><th style="width:7rem">Unit price £</th><th style="width:11rem">Nominal</th><th class="num" style="width:6.5rem">Line total</th><th style="width:2rem"></th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+    <tr class="line">
+      <td><select name="item" class="pick" aria-label="Price list item"><option value="">Choose…</option>{% for group, opts in groups %}<optgroup label="{{ group }}">{% for o in opts %}<option value="{{ o.key }}">{{ o.label }}</option>{% endfor %}</optgroup>{% endfor %}</select></td>
+      <td><input type="text" name="desc" value="{{ row.desc }}" aria-label="Description" class="desc"></td>
+      <td><input type="text" inputmode="decimal" name="qty" value="{{ row.qty }}" aria-label="Quantity" class="qty"></td>
+      <td><input type="text" inputmode="decimal" name="unit" value="{{ row.unit }}" aria-label="Unit price" class="unit"></td>
+      <td><select name="nominal" class="nominal" aria-label="Nominal code"><option value="">Choose…</option>{% for c in nominals %}<option value="{{ c.code }}" {{ "selected" if row.nominal == c.code }}>{{ c.code }} {{ c.label }}</option>{% endfor %}</select></td>
+      <td class="num line-total">£0.00</td>
+      <td><button type="button" class="secondary remove" aria-label="Remove line" title="Remove line">×</button></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr><td colspan="5" class="num"><strong>Total</strong></td><td class="num"><strong id="grand">£0.00</strong></td><td></td></tr></tfoot>
+  </table>
+  <p><button type="button" class="secondary" id="add-line">+ Add a line</button></p>
+
+  <div class="builder-text">
+    <label>Message to the payer <span class="muted">(printed on the invoice)</span><textarea name="message" rows="3">{{ v.message }}</textarea></label>
+    <label>Internal notes <span class="muted">(never shown to them)</span><textarea name="notes" rows="3">{{ v.notes }}</textarea></label>
+    <label>Tags <span class="muted">(comma-separated, e.g. boat park, 2027)</span><input type="text" name="tags" value="{{ v.tags }}"></label>
+    <fieldset class="toggles"><legend>Emails</legend>
+      <label class="check"><input type="checkbox" name="send_reminders" value="1" {{ "checked" if v.send_reminders }}> <span>Include in overdue reminders</span></label>
+      <label class="check"><input type="checkbox" name="send_receipt" value="1" {{ "checked" if v.send_receipt }}> <span>Email a thank-you when it is paid</span></label>
+    </fieldset>
+  </div>
+
+  <div class="builder-actions">
+    <button type="submit" name="action" value="issue_email" {{ "disabled" if not contact.email }} title="{{ 'Issues the invoice and emails it with the PDF' if contact.email else 'This person has no email address' }}">Issue and email</button>
+    <button type="submit" name="action" value="issue" class="secondary">Issue only</button>
+    <button type="submit" name="action" value="draft" class="secondary">Save draft</button>
+    <button type="submit" name="action" value="preview" class="secondary">Save and preview PDF</button>
+    <span class="muted">Issuing gives the invoice its number and locks the lines.</span>
+  </div>
+</form>
+<script type="application/json" id="catalogue">{{ catalogue|tojson }}</script>
+<script src="/static/invoice-builder.js" defer></script>
+{% endblock %}

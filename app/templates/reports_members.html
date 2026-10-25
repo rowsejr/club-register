@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Membership numbers{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+{% include "_report_nav.html" %}
+<div class="toolbar no-print"><span class="spacer"></span><a class="btn secondary" href="/app/finance/reports/membership.csv">Export CSV</a></div>
+<h2>Memberships by type and year</h2>
+<p class="muted">Counts of memberships (not people): a family counts once. Pending and declined memberships are not counted.</p>
+<div class="table-wrap"><table class="report"><thead><tr><th>Type</th>{% for y in stats.years %}<th class="num">{{ y }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in stats.rows %}<tr><td>{{ row.type }}</td>{% for y in stats.years %}<td class="num">{{ row.counts[y] or "" }}</td>{% endfor %}</tr>{% else %}<tr><td class="muted">No memberships.</td></tr>{% endfor %}
+</tbody><tfoot><tr><td>Total</td>{% for y in stats.years %}<td class="num">{{ stats.totals[y] }}</td>{% endfor %}</tr></tfoot></table></div>
+<h3>People joining each year</h3>
+<div class="table-wrap"><table class="report"><thead><tr><th>Year</th><th class="num">Joined</th></tr></thead><tbody>
+{% for y, n in stats.joined|dictsort(reverse=true) %}<tr><td>{{ y }}</td><td class="num">{{ n }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_pager.html" import render_pager %}
+{% block title %}Boats{% endblock %}
+{% block content %}
+<h1>Boats and berths</h1>
+{% include "_boats_nav.html" %}
+<div class="toolbar">
+  <form method="get" action="/app/boats" class="toolbar" style="margin:0"><input type="hidden" name="filter" value="{{ filter }}"><input type="search" name="q" value="{{ q }}" placeholder="Name, sail number or class" aria-label="Search boats"><button class="secondary" type="submit">Search</button></form>
+  <span class="spacer"></span>
+  <a class="btn secondary" href="/app/boats.csv?filter={{ filter }}&amp;q={{ q|urlencode }}">Export CSV</a>
+  {% for v, l in filters %}<a class="btn {{ '' if filter == v else 'secondary' }}" href="/app/boats?filter={{ v }}">{{ l }}</a>{% endfor %}
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Name</th><th>Sail no.</th><th>Class</th><th>Owner</th><th>Space now</th><th>Insurance</th></tr></thead><tbody>
+{% for it in items %}{% set b = it.boat %}<tr>
+  <td><a href="/app/boats/{{ b.id }}">{{ b.name }}</a>{% if b.is_club_boat %} <span class="badge">club</span>{% endif %}</td><td>{{ b.sail_number }}</td><td>{{ b.boat_class }}</td>
+  <td>{% if it.owner %}<a href="/app/contacts/{{ it.owner.id }}">{{ it.owner.name }}</a>{% endif %}</td><td>{{ it.space.name if it.space else "" }}</td>
+  <td><span class="badge {{ 'paid' if it.insurance == 'ok' else ('fail' if it.insurance in ('expired', 'unknown') else 'draft') }}">{{ it.insurance }}</span></td></tr>
+{% else %}<tr><td colspan="6" class="muted">No boats match.</td></tr>{% endfor %}
+</tbody></table></div>
+{{ render_pager(pager, "/app/boats", {"q": q, "filter": filter}, none) }}
+{% endblock %}

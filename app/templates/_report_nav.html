@@ -1,0 +1,8 @@
+<nav class="subnav report-nav" aria-label="Reports">
+  {% for key, href, label in [
+    ("committee", "/app/finance/reports", "Committee report"), ("income", "/app/finance/reports/income", "Income by nominal"),
+    ("rp", "/app/finance/reports/receipts-payments", "Receipts and payments"), ("accounts", "/app/finance/reports/accounts", "Accounts by month"), ("debtors", "/app/finance/reports/debtors", "Debtors at a date"),
+    ("membership", "/app/finance/reports/membership", "Membership numbers")] %}
+  <a href="{{ href }}" class="{{ 'active' if page == key }}">{{ label }}</a>
+  {% endfor %}
+</nav>

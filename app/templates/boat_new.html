@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Add a boat{% endblock %}
+{% block content %}
+<h1>Boats and berths</h1>
+{% set msg = "" %}{% set sub = "new" %}{% include "_boats_nav.html" %}
+{% if not owner and not club %}
+<h2>Whose boat is it?</h2>
+<form method="get" action="/app/boats/new" class="toolbar"><input type="search" name="q" value="{{ q }}" placeholder="Search contacts by name or email" aria-label="Search contacts" autofocus><button type="submit">Search</button></form>
+{% if matches %}<div class="table-wrap"><table><tbody>{% for c in matches %}<tr><td>{{ c.name }}</td><td>{{ c.email or "" }}</td><td><a class="btn secondary" href="/app/boats/new?contact_id={{ c.id }}">Their boat</a></td></tr>{% endfor %}</tbody></table></div>
+{% elif q %}<p class="muted">No contacts match. <a href="/app/contacts/new">Add the person first</a>.</p>{% endif %}
+<p class="muted">Club-owned boat? <a href="/app/boats/new?club=1">Add it without an owner</a>.</p>
+{% else %}
+<h2>{{ 'New boat for ' ~ owner.name if owner else 'New club boat' }}</h2>
+{% include "_boat_form.html" %}
+{% endif %}
+{% endblock %}

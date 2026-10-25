@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Booked{% endblock %}
+{% block content %}
+<div class="login card"><h1>{{ "You are on the waiting list" if booking.waiting else "Thank you" }}</h1>
+{% if booking.waiting %}<p>{{ event.title }} is full. We have noted your request and will email you if places come free.</p>
+{% elif booking.invoice %}<p>We are holding {{ booking.tickets|length }} place{{ "s" if booking.tickets|length != 1 }} for you at <strong>{{ event.title }}</strong>. We have emailed you the details and invoice {{ booking.invoice.reference }} for <strong>{{ booking.invoice.amount_minor|gbp }}</strong>. Please pay within a few days to keep them.</p>
+<p><a class="btn" href="{{ link }}">See the invoice and how to pay</a></p>
+{% else %}<p>You are booked for <strong>{{ event.title }}</strong>. We have emailed you a confirmation.</p>{% endif %}
+<p><a href="/whats-on">Back to events</a></p></div>
+{% endblock %}

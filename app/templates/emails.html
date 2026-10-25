@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_pager.html" import render_pager %}
+{% block title %}Email log{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<h2>Email log</h2>
+<p class="muted">Email provider: <strong>{{ provider }}</strong>{% if provider == "sandbox" %}. Nothing is actually sent; messages are recorded here so you can see exactly what would go out. Set CLUB_EMAIL_PROVIDER=smtp to send for real.{% endif %}</p>
+<div class="table-wrap"><table><thead><tr><th>When</th><th>To</th><th>Subject</th><th>Attachment</th><th>Status</th></tr></thead><tbody>
+{% for e in rows %}<tr><td>{{ e.created_at|dmy }}</td><td>{{ e.to_address }}</td><td style="white-space:normal">{{ e.subject }}</td><td>{{ e.attachment_name or "" }}</td>
+<td><span class="badge {{ 'paid' if e.status in ('sent', 'simulated') else 'fail' }}">{{ e.status }}</span>{% if e.error %} <span class="muted">{{ e.error }}</span>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">No emails yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{{ render_pager(pager, "/app/finance/emails", {}, none) }}
+{% endblock %}

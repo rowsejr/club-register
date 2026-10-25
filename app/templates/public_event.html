@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }}{% endblock %}
+{% block content %}
+<p><a href="/whats-on">← All events</a></p>
+<h1>{{ event.title }}</h1>
+<p class="muted">{{ event.start_at|local("%A %d %B %Y, %H:%M") }}{% if event.end_at %} to {{ event.end_at|local("%H:%M") }}{% endif %}{% if event.location %} · {{ event.location }}{% endif %}</p>
+{% if event.description %}<p style="white-space:pre-wrap">{{ event.description }}</p>{% endif %}
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+{% if not event.bookable %}<p class="muted">Just turn up: no tickets needed.</p>
+{% elif not open_ %}<div class="alert info">{{ why }}.</div>
+{% else %}
+<h2>{{ "Join the waiting list" if avail.sold_out else "Tickets" }}</h2>
+{% if avail.sold_out %}<p>This event is sold out. You can ask to go on the waiting list and we will email you if places come free.</p>{% endif %}
+{% if not types %}<p class="muted">Tickets for this event are for members.{% if member_types %} Members: <a href="/login?next=/app/me/events">sign in to book</a>.{% endif %}</p>
+{% else %}
+<form class="form" method="post" action="/whats-on/{{ event.id }}/book" style="max-width:560px">
+  <input type="hidden" name="ft" value="{{ ft }}">
+  <div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+  <label>Ticket<select name="type_id">{% for t in types %}<option value="{{ t.id }}" {{ "selected" if v.type_id == t.id|string }}>{{ t.name }}{% if t.price_minor %} · £{{ '%.2f' % (t.price_minor / 100) }}{% else %} · free{% endif %}</option>{% endfor %}</select></label>
+  <div class="row"><label>How many<input type="number" name="quantity" min="1" max="8" value="{{ v.quantity or 1 }}"></label><label>Your name<input type="text" name="name" value="{{ v.name or '' }}" required autocomplete="name"></label></div>
+  <div class="row"><label>Email <span class="muted">(your booking and invoice go here)</span><input type="email" name="email" value="{{ v.email or '' }}" required autocomplete="email"></label><label>Phone (optional)<input type="text" name="phone" value="{{ v.phone or '' }}" autocomplete="tel"></label></div>
+  <label>Names of the others coming <span class="muted">(optional, one per line)</span><textarea name="guests" rows="3">{{ v.guests or '' }}</textarea></label>
+  <label class="check"><input type="checkbox" name="consent" value="1" required> <span>I agree to the <a href="/privacy" target="_blank" rel="noopener">privacy notice</a>.</span></label>
+  <button type="submit">{{ "Join the waiting list" if avail.sold_out else "Book" }}</button>
+  <p class="muted">Paid tickets are held for you for a few days while you pay by bank transfer or online.</p>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

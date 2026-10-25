@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="login card">
+  <h1>Sign in</h1>
+  {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+  {% if step == "token" %}
+    <div class="alert info">If that address is registered, a single-use sign-in code has been sent to it.</div>
+    {% if dev_token %}<div class="alert ok">{% if demo %}<strong>Demo site:</strong> nothing is emailed here, so your code is{% else %}<strong>Dev mode:</strong> your code is{% endif %} <code>{{ dev_token }}</code></div>{% endif %}
+    <form class="form" method="post" action="/login/token">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label>Sign-in code<input type="text" name="token" autocomplete="one-time-code" required autofocus></label>
+      <button type="submit">Sign in</button>
+    </form>
+    <p><a href="/login">Use a different email</a></p>
+  {% else %}
+    <form class="form" method="post" action="/login">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label>Email address<input type="email" name="email" autocomplete="email" required autofocus></label>
+      <button type="submit">Email me a sign-in code</button>
+    </form>
+    {% if demo %}<p class="muted">Demo accounts: <code>admin@example.org</code>, <code>treasurer@example.org</code>, <code>secretary@example.org</code>, <code>bosun@example.org</code>, <code>training@example.org</code>. The code appears on the next screen.</p>{% endif %}
+  {% endif %}
+</div>
+{% endblock %}

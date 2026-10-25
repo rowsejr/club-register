@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title if event else "New event" }}{% endblock %}
+{% block content %}
+<p><a href="{{ '/app/events/' ~ event.id if event else '/app/events' }}">← {{ "Back to the event" if event else "Events" }}</a></p>
+<h1>{{ "Edit event" if event else "New event" }}</h1>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+{% include "_event_fields.html" %}
+{% endblock %}

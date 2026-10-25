@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_compare_table.html" import compare %}
+{% block title %}Money report{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+{% include "_report_nav.html" %}
+<div class="toolbar no-print">
+  <a class="btn secondary" href="/app/finance/reports?year={{ prev[0] }}&amp;month={{ prev[1] }}">← {{ months[prev[1] - 1][1] }}</a>
+  <form method="get" action="/app/finance/reports" class="toolbar" style="margin:0">
+    <select name="month" aria-label="Month">{% for n, name in months %}<option value="{{ n }}" {{ "selected" if n == r.month }}>{{ name }}</option>{% endfor %}</select>
+    <select name="year" aria-label="Year">{% for y in years %}<option {{ "selected" if y == r.year }}>{{ y }}</option>{% endfor %}</select>
+    <button type="submit" class="secondary">Show</button>
+  </form>
+  <a class="btn secondary" href="/app/finance/reports?year={{ nxt[0] }}&amp;month={{ nxt[1] }}">{{ months[nxt[1] - 1][1] }} →</a>
+  <span class="spacer"></span>
+  <a class="btn" href="/app/finance/reports/committee.pdf?year={{ r.year }}&amp;month={{ r.month }}" target="_blank" rel="noopener">PDF for the meeting</a>
+  <button type="button" class="secondary" data-print>Print</button>
+</div>
+<h2>Money report: {{ r.month_name }}</h2>
+{% if r.waiting %}<div class="alert error" role="status">{{ r.waiting }} bank line{{ "" if r.waiting == 1 else "s" }} still waiting to be matched or categorised, so the received and spent figures are not final. <a href="/app/finance/bank">Deal with them</a>.</div>{% endif %}
+
+<div class="cards">
+  {% set total_bank = namespace(v=0) %}{% for p in r.positions %}{% set total_bank.v = total_bank.v + (p.statement if p.statement is not none else p.closing) %}{% endfor %}
+  <div class="card"><div class="label">In the bank</div><div class="metric">{{ total_bank.v|gbp }}</div><div class="label">{{ r.positions|length }} account{{ "" if r.positions|length == 1 else "s" }}</div></div>
+  <div class="card"><div class="label">Received this month</div><div class="metric">{{ r.cash_month.total_receipts|gbp }}</div><div class="label">{{ r.cash_ytd.total_receipts|gbp }} this year</div></div>
+  <div class="card"><div class="label">Spent this month</div><div class="metric">{{ r.cash_month.total_payments|gbp }}</div><div class="label">{{ r.cash_ytd.total_payments|gbp }} this year</div></div>
+  <div class="card"><div class="label">Owed to the club</div><div class="metric {{ 'warn' if r.debtors.buckets.d31_60 or r.debtors.buckets.d61_90 or r.debtors.buckets.d90_plus }}">{{ r.debtors.total|gbp }}</div><div class="label">from {{ r.debtors.people }} people</div></div>
+  <div class="card"><div class="label">Memberships in force</div><div class="metric">{{ r.members.active }}</div></div>
+</div>
+
+<h3>The last twelve months</h3>
+<figure class="chart" aria-label="Invoiced and received each month">
+  <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" width="100%">
+    <line x1="0" y1="{{ chart.height - 18 }}" x2="{{ chart.width }}" y2="{{ chart.height - 18 }}" stroke="#c9d3e0"/>
+    {% for b in chart.bars %}<rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" class="bar {{ b.kind }}"><title>{{ b.tip }}</title></rect>{% endfor %}
+    {% for l in chart.labels %}<text x="{{ l.x }}" y="{{ chart.height - 4 }}" text-anchor="middle" font-size="10" fill="#5b6b7f">{{ l.text }}</text>{% endfor %}
+  </svg>
+  <figcaption><span class="key invoiced"></span> Invoiced &nbsp; <span class="key received"></span> Received in the bank</figcaption>
+</figure>
+
+<h3>Bank balances at {{ r.period[1]|dmy }}</h3>
+<div class="table-wrap"><table class="report"><thead><tr><th>Account</th><th class="num">Balance</th><th class="num">Lines to deal with</th><th></th></tr></thead><tbody>
+{% for p in r.positions %}<tr><td>{{ p.account.name }}</td><td class="num">{{ (p.statement if p.statement is not none else p.closing)|gbp }}</td><td class="num">{{ p.waiting }}</td><td>{% if not p.agrees %}<span class="badge cancelled">lines add up to {{ p.closing|gbp }}: a line may be missing</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+
+{{ compare("Income invoiced", r.invoiced, "What was billed, by the date of the invoice. Credit notes come off the nominal they credit.") }}
+{{ compare("Money received", r.received, "Money that reached the bank, from the bank lines.") }}
+{{ compare("Money spent", r.spent) }}
+
+<h3>Who owes the club</h3>
+<div class="table-wrap"><table class="report"><thead><tr><th class="num">Not yet due</th><th class="num">1–30 days late</th><th class="num">31–60</th><th class="num">61–90</th><th class="num">Over 90</th><th class="num">Total</th></tr></thead><tbody>
+<tr><td class="num">{{ r.debtors.buckets.not_due|gbp }}</td><td class="num">{{ r.debtors.buckets.d1_30|gbp }}</td><td class="num">{{ r.debtors.buckets.d31_60|gbp }}</td><td class="num">{{ r.debtors.buckets.d61_90|gbp }}</td><td class="num">{{ r.debtors.buckets.d90_plus|gbp }}</td><td class="num"><strong>{{ r.debtors.total|gbp }}</strong></td></tr>
+</tbody></table></div>
+{% if r.debtors.top %}<p class="muted">Largest: {% for d in r.debtors.top[:5] %}<a href="/app/finance/invoices/{{ d.invoice.id }}">{{ d.contact_name }}</a> {{ d.outstanding|gbp }}{{ ", " if not loop.last }}{% endfor %}. <a href="/app/finance/reports/debtors?as_at={{ r.period[1].isoformat() }}">Full list</a></p>{% endif %}
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}My family{% endblock %}
+{% block content %}
+<p><a href="/app">← My account</a></p>
+<h1>My family</h1>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<p class="muted">Anyone under 18 needs a parent or guardian to give consent and emergency details before they can join a course. Consent lasts a year.</p>
+{% for person, profile, ok, age in people %}
+<div class="card" style="margin-bottom:1rem">
+  <div class="toolbar"><strong>{{ person.name }}</strong><span class="muted">{{ ("age " ~ age) if age is not none else "" }}{{ " (me)" if person.id == me.id }}</span><span class="spacer"></span>
+    <span class="badge {{ 'paid' if ok else 'draft' }}">consent {{ "current" if ok else "needed" }}</span></div>
+  <details {{ "open" if not ok and (age is not none and age < 18) }}><summary>Consent and emergency details</summary>
+    <form method="post" action="/app/me/family/{{ person.id }}/consent" class="form" style="max-width:560px;margin-top:.6rem"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="row"><label>Emergency contact name<input type="text" name="emergency_name" value="{{ profile.emergency_name if profile and profile.emergency_name else '' }}" required></label><label>Emergency phone<input type="text" name="emergency_phone" value="{{ profile.emergency_phone if profile and profile.emergency_phone else '' }}" required></label></div>
+      <label>Medical conditions we should know about<textarea name="medical" rows="2">{{ profile.medical or '' if profile else '' }}</textarea></label>
+      <label>Allergies<textarea name="allergies" rows="2">{{ profile.allergies or '' if profile else '' }}</textarea></label>
+      <label>Can swim 50 metres in light clothing?<select name="swim"><option value="">Not sure</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+      <label class="check"><input type="checkbox" name="photo" value="1" {{ "checked" if profile and profile.photo_ok }}> The club may take photos for its own use</label>
+      <label class="check"><input type="checkbox" name="agree" value="1"> I consent to {{ person.name }} taking part in club training and activities, and that the information above is correct.</label>
+      <button type="submit">Save consent</button></form></details>
+</div>
+{% endfor %}
+<h2>Add a child</h2>
+<form method="post" action="/app/me/family/children" class="form" style="max-width:480px"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Name<input type="text" name="name" required></label><label>Date of birth (YYYY-MM-DD)<input type="text" name="birth_date" required placeholder="2015-05-01"></label>
+  <button type="submit">Add</button></form>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Nominal codes{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<h2>Nominal codes</h2>
+<p class="muted">The headings the club's money is reported under. Income codes say where money comes from; expense codes are for what the club spends. Hiding a code keeps its history but removes it from the pick-lists.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Code</th><th>Label</th><th>Kind</th><th>Shown</th><th></th></tr></thead>
+<tbody>
+{% for c in codes %}<tr class="{{ '' if c.active is not false else 'muted' }}"><td>{{ c.code }}</td><td>{{ c.label }}</td><td>{{ c.kind or "income" }}</td><td>{{ "yes" if c.active is not false else "hidden" }}</td>
+<td>{% if perms|can("finance.admin") %}<form method="post" action="/app/finance/nominals" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="code" value="{{ c.code }}"><input type="hidden" name="label" value="{{ c.label }}"><input type="hidden" name="kind" value="{{ c.kind or 'income' }}"><input type="hidden" name="active" value="{{ '0' if c.active is not false else '1' }}"><button class="secondary" type="submit">{{ "Hide" if c.active is not false else "Show" }}</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">No codes.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if perms|can("finance.admin") %}
+<h3>Add or rename a code</h3>
+<form method="post" action="/app/finance/nominals" class="form" style="max-width:560px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="row"><label>Code<input type="text" name="code" placeholder="e.g. 0209" required pattern="[0-9]{1,6}"></label><label>Label<input type="text" name="label" required></label>
+  <label>Kind<select name="kind"><option value="income">Income</option><option value="expense">Expense</option></select></label></div>
+  <div class="actions"><button type="submit">Save</button></div>
+</form>
+{% endif %}
+{% endblock %}

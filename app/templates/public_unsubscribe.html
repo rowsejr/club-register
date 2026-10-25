@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Unsubscribe{% endblock %}
+{% block content %}
+<div class="login card"><h1>Stop club emails</h1>
+{% if done %}<p>Hello {{ first }}: you are already unsubscribed. We will not send you club news or mailings.</p>
+{% else %}<p>Hello {{ first }}. Press the button to stop club news and mailings. You will still get emails about your own invoices and membership.</p>
+<form method="post" action="/unsubscribe/{{ token }}"><button type="submit">Unsubscribe me</button></form>{% endif %}
+<p><a href="/membership">Back to the club</a></p></div>
+{% endblock %}

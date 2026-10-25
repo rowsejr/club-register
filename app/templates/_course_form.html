@@ -1,0 +1,13 @@
+<form class="form" method="post" action="{{ '/app/training/' ~ course.id if course else '/app/training' }}" style="max-width:680px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Name<input type="text" name="name" value="{{ course.name if course else '' }}" required></label>
+  <div class="row"><label>Starts<input type="datetime-local" name="starts" value="{{ local(course.starts_at) if course else '' }}" required></label><label>Ends<input type="datetime-local" name="ends" value="{{ local(course.ends_at) if course else '' }}"></label></div>
+  <div class="row"><label>Places<input type="number" name="capacity" min="1" value="{{ course.capacity if course else 8 }}" required></label><label>Price (£, blank for free)<input type="text" name="price" inputmode="decimal" value="{{ '%.2f' % (course.price_minor / 100) if course and course.price_minor else '' }}"></label></div>
+  <div class="row"><label>Level<input type="text" name="level" value="{{ course.level or '' if course else '' }}" placeholder="e.g. RYA Level 2"></label><label>Venue<input type="text" name="venue" value="{{ course.venue or '' if course else '' }}"></label></div>
+  <div class="row"><label>Minimum age<input type="number" name="min_age" min="0" value="{{ course.min_age if course and course.min_age is not none else '' }}"></label><label>Waiting list limit (blank = unlimited)<input type="number" name="waitlist" min="0" value="{{ course.waitlist_limit if course and course.waitlist_limit is not none else '' }}"></label></div>
+  <div class="row"><label>Free cancellation until (days before)<input type="number" name="cutoff" min="0" value="{{ course.cancel_cutoff_days if course else 7 }}"></label>
+    <label>Qualification awarded on a pass<select name="qualification"><option value="">None</option>{% for q in qtypes %}<option value="{{ q.id }}" {{ "selected" if course and course.qualification_type_id == q.id }}>{{ q.name }}</option>{% endfor %}</select></label></div>
+  <label>Description<textarea name="description" rows="3">{{ course.description or '' if course else '' }}</textarea></label>
+  <label>Status<select name="status">{% for s in ["open", "draft", "closed", "complete"] %}<option {{ "selected" if (course and course.status == s) or (not course and s == "open") }}>{{ s }}</option>{% endfor %}</select></label>
+  <div class="actions"><button type="submit">Save</button></div>
+</form>

@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Install", "type": "shell", "command": "python", "args": ["-m", "pip", "install", "-e", ".[dev]"], "group": "build" },
+    { "label": "Set up the database", "type": "shell", "command": "python", "args": ["-m", "app.cli", "init-db"], "group": "build" },
+    { "label": "Tests", "type": "shell", "command": "python", "args": ["-m", "pytest", "-q"], "group": "test" },
+    { "label": "Scan", "type": "shell", "command": "python", "args": ["tools/scan.py"], "group": "test" },
+    { "label": "Run the office", "type": "shell", "command": "python", "args": ["-m", "uvicorn", "app.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"], "isBackground": true }
+  ]
+}

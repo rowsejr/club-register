@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Training{% endblock %}
+{% block content %}
+<p><a href="/app">← My account</a></p>
+<h1>Training</h1>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<h2>Upcoming courses</h2>
+{% for c, seat in courses %}{% set taken, free, waiting = seat %}
+<div class="card" style="margin-bottom:.8rem">
+  <div class="toolbar"><strong>{{ c.name }}</strong> <span class="muted">{{ c.starts_at|local }}{% if c.venue %} · {{ c.venue }}{% endif %}</span><span class="spacer"></span>
+    <span class="badge {{ 'fail' if free == 0 else 'paid' }}">{{ free }} place{{ "" if free == 1 else "s" }} left</span> <strong>{{ c.price_minor|gbp if c.price_minor else "Free" }}</strong></div>
+  {% if c.description %}<p class="muted">{{ c.description }}</p>{% endif %}
+  {% if c.min_age %}<p class="muted">Minimum age {{ c.min_age }}.</p>{% endif %}
+  {% if people %}
+  <form method="post" action="/app/me/training/{{ c.id }}/book" class="toolbar" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Who is it for? <select name="attendee">{% for p in people %}<option value="{{ p.id }}">{{ p.name }}{{ " (me)" if me and p.id == me.id }}</option>{% endfor %}</select></label>
+    <button type="submit">{{ "Join the waiting list" if free == 0 else "Book" }}</button></form>
+  {% endif %}
+</div>
+{% else %}<p class="muted">No courses are open for booking right now.</p>{% endfor %}
+<p class="muted">Booking for a child? Add them first under <a href="/app/me/family">My family</a> and complete their consent form.</p>
+
+<h2>My bookings</h2>
+<div class="table-wrap"><table><thead><tr><th>Course</th><th>For</th><th>When</th><th>Status</th><th>Invoice</th><th></th></tr></thead><tbody>
+{% for b, c, who in mine %}<tr><td>{{ c.name }}</td><td>{{ who.name if who else "" }}</td><td>{{ c.starts_at|local }}</td>
+<td><span class="badge {{ 'paid' if b.status in ('booked', 'attended', 'passed') else ('cancelled' if b.status in ('cancelled', 'failed', 'no_show') else 'draft') }}">{{ b.status|replace("_", " ") }}</span></td>
+<td>{% if b.invoice_id and invoices[b.invoice_id] %}<a href="/app/me/invoices/{{ b.invoice_id }}">{{ invoices[b.invoice_id].reference }}</a>{% endif %}</td>
+<td>{% if b.status in ("pending_payment", "booked", "waitlist") %}<form method="post" action="/app/me/training/bookings/{{ b.id }}/cancel" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Cancel</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No bookings yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Lists and tags{% endblock %}
+{% block content %}
+<h1>Lists and tags</h1>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<p class="muted">Lists are named groups (Committee, Voting members). Tags are quick labels you put on a person. Both can be used to filter <a href="/app/members">Members</a> and <a href="/app/contacts">Contacts</a> and to choose who gets a <a href="/app/mailings">mailing</a>.</p>
+<h2>Lists</h2>
+<div class="table-wrap"><table><thead><tr><th>List</th><th class="num">People</th></tr></thead><tbody>
+{% for lst, n in lists %}<tr><td><a href="/app/lists/{{ lst.id }}">{{ lst.name }}</a></td><td class="num">{{ n }}</td></tr>{% else %}<tr><td colspan="2" class="muted">No lists yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if perms|can("members.write") %}<form method="post" action="/app/lists" class="toolbar"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="name" placeholder="New list name" aria-label="New list name" required><button type="submit" class="secondary">Create list</button></form>{% endif %}
+<h2>Tags</h2>
+<p>{% for t, n in tags %}<a class="chip" href="/app/contacts?tag={{ t|urlencode }}">{{ t }} · {{ n }}</a> {% else %}<span class="muted">No tags yet: add one on a contact's page.</span>{% endfor %}</p>
+<p><a href="/app/people/issues">Check the people data for problems</a></p>
+{% endblock %}

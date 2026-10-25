@@ -1,0 +1,12 @@
+{% macro compare(title, rows, note="") %}
+<h3>{{ title }}</h3>
+{% if note %}<p class="muted">{{ note }}</p>{% endif %}
+<div class="table-wrap"><table class="report">
+<thead><tr><th></th><th class="num">This month</th><th class="num">Same month last year</th><th class="num">Year to date</th><th class="num">Last year to date</th></tr></thead>
+<tbody>
+{% for c in rows %}<tr><td>{{ c.code }} {{ c.label }}</td><td class="num">{{ c.month|gbp }}</td><td class="num muted">{{ c.month_last_year|gbp }}</td><td class="num">{{ c.ytd|gbp }}</td><td class="num muted">{{ c.ytd_last_year|gbp }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Nothing in this period.</td></tr>{% endfor %}
+</tbody>
+{% if rows %}<tfoot><tr><td>Total</td><td class="num">{{ rows|sum(attribute="month")|gbp }}</td><td class="num">{{ rows|sum(attribute="month_last_year")|gbp }}</td><td class="num">{{ rows|sum(attribute="ytd")|gbp }}</td><td class="num">{{ rows|sum(attribute="ytd_last_year")|gbp }}</td></tr></tfoot>{% endif %}
+</table></div>
+{% endmacro %}

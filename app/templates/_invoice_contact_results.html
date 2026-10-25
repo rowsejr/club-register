@@ -1,0 +1,3 @@
+{% if matches %}
+<div class="pickable">{% for c in matches %}<a href="/app/finance/new?contact_id={{ c.id }}"><strong>{{ c.name }}</strong><br><span class="muted">{{ c.email or "no email" }}{% if c.member_id %} · member{% endif %}</span></a>{% endfor %}</div>
+{% elif q %}<p class="muted">No contacts match “{{ q }}”. <a href="/app/contacts/new">Add them as a new contact</a>.</p>{% endif %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_pager.html" import render_pager %}
+{% block title %}Enquiries{% endblock %}
+{% block content %}
+<h1>New members</h1>
+{% set sub = "enquiries" %}{% include "_people_nav.html" %}
+<div class="toolbar">
+  {% for key, label in tabs %}<a class="btn {{ '' if tab == key else 'secondary' }}" href="/app/enquiries?tab={{ key }}">{{ label }}{% if key == "open" %} ({{ counts.get("new", 0) + counts.get("contacted", 0) }}){% elif key in counts %} ({{ counts[key] }}){% endif %}</a>{% endfor %}
+  <span class="spacer"></span>
+  <form method="get" action="/app/enquiries" class="toolbar" style="margin:0"><input type="hidden" name="tab" value="{{ tab }}"><input type="search" name="q" value="{{ q }}" placeholder="Search" aria-label="Search enquiries"></form>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Received</th><th>Name</th><th>Interest</th><th>Source</th><th>Status</th><th>Assigned</th><th>Message</th></tr></thead><tbody>
+{% for e in rows %}<tr>
+  <td>{{ e.created_at|dmy }}{% if e.id in stale %} <span class="badge fail" title="Waiting more than 3 days">waiting</span>{% endif %}</td>
+  <td><a href="/app/enquiries/{{ e.id }}">{{ e.name }}</a></td><td>{{ (e.interest or "")|replace("_", " ") }}</td><td>{{ e.source }}</td>
+  <td><span class="badge {{ 'paid' if e.status == 'converted' else ('draft' if e.status in ('new', 'contacted', 'unverified') else 'cancelled') }}">{{ e.status }}</span></td>
+  <td>{{ e.assigned_to or "" }}</td><td style="white-space:normal;max-width:28rem">{{ (e.message or "")[:120] }}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">Nothing here. {% if tab == "open" %}No open enquiries: well done.{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{{ render_pager(pager, "/app/enquiries", {"tab": tab, "q": q}, none) }}
+{% endblock %}

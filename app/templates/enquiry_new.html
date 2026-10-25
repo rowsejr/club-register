@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Log an enquiry{% endblock %}
+{% block content %}
+<h1>New members</h1>
+{% set sub = "log" %}{% include "_people_nav.html" %}
+<h2>Log an enquiry</h2>
+<p class="muted">For calls, emails and people who stop by. It goes straight into the open queue.</p>
+<form class="form" method="post" action="/app/enquiries/new">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Name<input type="text" name="name" required></label>
+  <div class="row"><label>Email<input type="email" name="email"></label><label>Phone<input type="text" name="phone"></label></div>
+  <div class="row"><label>Interested in<select name="interest">{% for i in interests %}<option value="{{ i }}">{{ i|replace("_", " ")|capitalize }}</option>{% endfor %}</select></label>
+  <label>How they got in touch<select name="source"><option value="phone">Phone</option><option value="walk_in">In person</option><option value="email">Email</option></select></label></div>
+  <label>What they said<textarea name="message" rows="4"></textarea></label>
+  <button type="submit">Save enquiry</button>
+</form>
+{% endblock %}

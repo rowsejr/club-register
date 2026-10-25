@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Join online{% endblock %}
+{% block content %}
+<h1>Join online</h1>
+{% if not types %}
+<p>Online joining is not open yet. Please <a href="/join-us">get in touch</a> and we will help you join.</p>
+{% else %}
+<p class="muted">Apply below. We will email you a link to confirm your address; then the committee considers your application and, when it is approved, we send your first invoice. Your membership starts when it is paid.</p>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+<form class="form" method="post" action="/join" style="max-width:640px">
+  <input type="hidden" name="ft" value="{{ ft }}">
+  <div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+  <label>Membership
+    <select name="type" required><option value="">Choose…</option>{% for t in types %}<option value="{{ t.id }}" {{ "selected" if v.type == t.id|string }}>{{ t.name }} · {{ t.fee_minor|gbp if t.fee_minor is not none else "ask" }}{% if t.joining_fee_minor %} + {{ t.joining_fee_minor|gbp }} joining{% endif %}</option>{% endfor %}</select></label>
+  <label>Your name<input type="text" name="name" value="{{ v.name or '' }}" required maxlength="255" autocomplete="name"></label>
+  <div class="row"><label>Email<input type="email" name="email" value="{{ v.email or '' }}" required autocomplete="email"></label><label>Phone<input type="text" name="phone" value="{{ v.phone or '' }}" autocomplete="tel"></label></div>
+  <label>Address<textarea name="address" rows="3" autocomplete="street-address">{{ v.address or '' }}</textarea></label>
+  <label>Date of birth (YYYY-MM-DD)<input type="text" name="birth_date" value="{{ v.birth_date or '' }}" placeholder="1985-03-30" inputmode="numeric"></label>
+  <label>Sailing experience<textarea name="experience" rows="3">{{ v.experience or '' }}</textarea></label>
+  <details><summary>Partner or children on the same membership</summary>
+    {% for n in slots %}<div class="row" style="margin-top:.6rem">
+      <label>Name<input type="text" name="person_name_{{ n }}"></label>
+      <label>Who<select name="person_role_{{ n }}"><option value="partner">Partner</option><option value="child">Child</option></select></label>
+      <label>Email (optional)<input type="email" name="person_email_{{ n }}"></label>
+      <label>Date of birth<input type="text" name="person_birth_{{ n }}" placeholder="2015-05-01"></label></div>{% endfor %}
+  </details>
+  <label class="check"><input type="checkbox" name="rules" value="1" required> I agree to abide by the club rules.</label>
+  <label class="check"><input type="checkbox" name="consent" value="1" required> I agree that the club may hold my details to run my membership. See the <a href="/privacy" target="_blank" rel="noopener">privacy notice</a>.</label>
+  <label class="check"><input type="checkbox" name="marketing" value="1"> You may email me club news and events.</label>
+  <button type="submit">Send my application</button>
+</form>
+{% endif %}
+{% endblock %}

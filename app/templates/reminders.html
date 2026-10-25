@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Payment reminders{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<h2>Payment reminders</h2>
+<p class="muted">Overdue invoices that have not been reminded in the last 14 days. Each reminder carries the invoice PDF and the club's payment instructions. In sandbox mode nothing leaves the machine; see the <a href="/app/finance/emails">email log</a>.</p>
+<form method="get" action="/app/finance/reminders" class="toolbar">
+  <label>Overdue by at least <input type="number" name="min_days" value="{{ min_days }}" min="1" style="width:5rem"> days</label><button class="secondary" type="submit">Update</button>
+</form>
+<form method="post" action="/app/finance/reminders">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="table-wrap"><table>
+  <thead><tr><th></th><th>Invoice</th><th>Contact</th><th>Email</th><th class="num">Owed</th><th class="num">Days late</th><th>Last reminded</th></tr></thead><tbody>
+  {% for c in candidates %}<tr>
+    <td><input type="checkbox" name="invoice" value="{{ c.invoice.id }}" aria-label="Remind {{ c.contact.name }}" {{ "checked" if c.can_email else "disabled" }}></td>
+    <td><a href="/app/finance/invoices/{{ c.invoice.id }}">{{ c.invoice.reference }}</a></td><td><a href="/app/contacts/{{ c.contact.id }}">{{ c.contact.name }}</a></td>
+    <td>{% if c.can_email %}{{ c.contact.email }}{% elif c.contact.suppressed %}<span class="muted">opted out</span>{% else %}<span class="muted">no email</span>{% endif %}</td>
+    <td class="num">{{ c.outstanding|gbp }}</td><td class="num">{{ c.days_overdue }}</td><td>{{ c.last_reminded|dmy }}</td></tr>
+  {% else %}<tr><td colspan="7" class="muted">Nothing needs a reminder.</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% if candidates %}<p><button type="submit">Send selected reminders</button></p>{% endif %}
+</form>
+{% endblock %}

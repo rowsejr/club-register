@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ member.name if member else "New member" }}{% endblock %}
+{% block content %}
+<h1>{{ member.name if member else "New member" }}</h1>
+{% if saved %}<div class="alert ok" role="status">Saved.</div>{% endif %}
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+<form class="form" method="post" action="{{ '/app/members/' ~ member.id if member else '/app/members' }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Name<input type="text" name="name" value="{{ v.name }}" required></label>
+  <label>Email <span class="muted">(optional)</span><input type="email" name="email" value="{{ v.email }}"></label>
+  <div class="row">
+    <label>Membership type
+      <select name="membership_type">
+        {% if v.membership_type and v.membership_type not in types %}<option value="{{ v.membership_type }}" selected>{{ v.membership_type }}</option>{% endif %}
+        {% for t in types %}<option value="{{ t }}" {{ "selected" if v.membership_type == t }}>{{ t }}</option>{% endfor %}
+      </select></label>
+    <label>Status
+      <select name="renewal_status">{% for st in ["active", "applying", "lapsed", "resigned", "suspended", "pending"] %}<option value="{{ st }}" {{ "selected" if v.renewal_status == st }}>{{ st|capitalize }}</option>{% endfor %}</select></label>
+    <label>Payment
+      <select name="payment_status">{% for st in ["paid", "arrears"] %}<option value="{{ st }}" {{ "selected" if v.payment_status == st }}>{{ st|capitalize }}</option>{% endfor %}</select></label>
+  </div>
+  {% if member and member.membership_number %}<p class="muted">Membership number {{ member.membership_number }}</p>{% endif %}
+  <div class="row">
+    <label>Joined<input type="date" name="join_date" value="{{ v.join_date }}"></label>
+    <label>Expires<input type="date" name="expiry_date" value="{{ v.expiry_date }}"></label>
+  </div>
+  <div class="actions"><button type="submit">Save</button><a class="btn secondary" href="/app/members">Back</a></div>
+</form>
+{% if member %}
+<form method="post" action="/app/members/{{ member.id }}/active" style="margin-top:1rem">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="active" value="{{ '0' if member.active else '1' }}">
+  <button class="{{ 'danger' if member.active else 'secondary' }}" type="submit">{{ "Deactivate member" if member.active else "Reactivate member" }}</button>
+</form>
+{% if contact %}<p>Contact record: <a href="/app/contacts/{{ contact.id }}">{{ contact.name }}</a></p>{% endif %}
+<div class="toolbar"><h2 style="margin:0">Recent invoices</h2><span class="spacer"></span>{% if contact %}<a class="btn" href="/app/finance/new?contact_id={{ contact.id }}">New invoice</a>{% endif %}</div>
+<div class="table-wrap"><table><thead><tr><th>Reference</th><th>Status</th><th>Total</th><th>Due</th></tr></thead><tbody>
+{% for i in invoices %}<tr><td><a href="/app/finance/invoices/{{ i.id }}">{{ i.reference }}</a></td><td><span class="badge {{ i.status }}">{{ i.status }}</span></td><td>{{ i.amount_minor|gbp }}</td><td>{{ i.due_date|dmy }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">No invoices.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Scheduled jobs{% endblock %}
+{% block content %}
+<h1>Scheduled jobs</h1>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<p class="muted">These run by themselves, from a timer on the server (<code>python -m app.cli run-jobs</code>, hourly). Each one acts only on people who have not already been told or billed, so running twice never doubles anything. <strong>Rehearse</strong> lists what a job would do and changes nothing.</p>
+<div class="table-wrap"><table><thead><tr><th>Job</th><th>How often</th><th>Last ran</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.job.label }}<br><span class="muted">{{ r.job.name }}</span></td><td>{{ r.job.schedule }}</td><td>{{ r.last|dmy if r.last else "never" }}{% if r.due %} <span class="badge draft">due</span>{% endif %}</td>
+<td style="white-space:nowrap"><form method="post" action="/app/admin/jobs/{{ r.job.name }}/run" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" name="mode" value="rehearse" type="submit">Rehearse</button> <button name="mode" value="now" type="submit">Run now</button></form></td></tr>{% endfor %}
+</tbody></table></div>
+<h2>Recent runs</h2>
+<div class="table-wrap"><table><thead><tr><th>When</th><th>Job</th><th>Result</th><th>What it did</th><th>By</th></tr></thead><tbody>
+{% for r in runs %}<tr><td>{{ r.started_at|dmy }}</td><td>{{ r.job }}{% if r.dry_run %} <span class="badge">rehearsal</span>{% endif %}</td><td><span class="badge {{ 'paid' if r.status == 'ok' else 'cancelled' }}">{{ r.status }}</span></td><td style="white-space:normal" class="muted">{{ r.summary }}</td><td>{{ r.triggered_by or "" }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Nothing has run yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

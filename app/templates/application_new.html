@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Add a member{% endblock %}
+{% block content %}
+<h1>New members</h1>
+{% set sub = "add" %}{% include "_people_nav.html" %}
+<h2>Add a member</h2>
+<p class="muted">For people who join by phone, on paper or in person. Tick "approve now" to issue their first invoice straight away; they become members when it is paid.</p>
+<form class="form" method="post" action="/app/applications/new" style="max-width:640px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Membership<select name="type" required><option value="">Choose…</option>{% for t in types %}<option value="{{ t.id }}">{{ t.name }}{% if t.fee_minor is not none %} · {{ t.fee_minor|gbp }}{% else %} · no fee set{% endif %}</option>{% endfor %}</select></label>
+  <label>Name<input type="text" name="name" required></label>
+  <div class="row"><label>Email<input type="email" name="email"></label><label>Phone<input type="text" name="phone"></label></div>
+  <label>Address<textarea name="address" rows="2"></textarea></label>
+  <label>Date of birth (YYYY-MM-DD)<input type="text" name="birth_date" placeholder="1985-03-30"></label>
+  <details><summary>Partner or children on the same membership</summary>
+    {% for n in slots %}<div class="row" style="margin-top:.6rem"><label>Name<input type="text" name="person_name_{{ n }}"></label><label>Who<select name="person_role_{{ n }}"><option value="partner">Partner</option><option value="child">Child</option></select></label>
+    <label>Email<input type="email" name="person_email_{{ n }}"></label><label>Date of birth<input type="text" name="person_birth_{{ n }}"></label></div>{% endfor %}
+  </details>
+  <label>Notes<textarea name="notes" rows="2"></textarea></label>
+  <label class="check"><input type="checkbox" name="approve_now" value="1" checked> Approve now and issue the first invoice</label>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

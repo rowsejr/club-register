@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Bank line{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<p><a href="/app/finance/bank">← Back to the bank</a></p>
+<div class="cards" style="margin-bottom:1rem">
+  <div class="card"><div class="label">Date</div>{{ entry.entry_date|dmy }}</div>
+  <div class="card"><div class="label">Account</div>{{ account.name if account else "" }}</div>
+  <div class="card"><div class="label">Amount</div><div class="metric" style="font-size:1.4rem">{{ entry.amount_minor|gbp }}</div></div>
+  <div class="card"><div class="label">Status</div><span class="badge {{ 'paid' if entry.status in ('matched', 'categorised') else 'draft' }}">{{ entry.status }}</span></div>
+</div>
+<div class="card" style="margin-bottom:1rem"><strong>{{ entry.reference or "(no reference)" }}</strong><br>{{ entry.details }}{% if entry.counterparty %}<br><span class="muted">{{ entry.counterparty }}</span>{% endif %}</div>
+
+{% if entry.status == "categorised" %}
+<h2>Categorised as</h2>
+<div class="table-wrap"><table><thead><tr><th>Kind</th><th>Nominal</th><th>Detail</th><th class="num">Amount</th></tr></thead><tbody>
+{% for a in allocations %}<tr><td>{{ a.kind }}</td><td>{{ a.nominal_code or "" }}</td><td>{{ a.description or "" }}{% if a.payee %} <span class="muted">· {{ a.payee }}</span>{% endif %}</td><td class="num">{{ a.amount_minor|gbp }}</td></tr>{% endfor %}
+</tbody></table></div>
+<form method="post" action="/app/finance/bank/entries/{{ entry.id }}/uncategorise" style="margin-top:.8rem"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Put back in the queue</button></form>
+{% elif entry.status == "matched" %}
+<h2>Matched to</h2>
+<div class="table-wrap"><table><tbody>{% for p in payments %}<tr><td><a href="/app/finance/invoices/{{ p.invoice_id }}">Invoice {{ invoices[p.invoice_id].reference }}</a></td><td class="num">{{ p.amount_minor|gbp }}</td><td>{{ p.status }}</td></tr>{% endfor %}</tbody></table></div>
+<form method="post" action="/app/finance/bank/entries/{{ entry.id }}/unmatch" style="margin-top:.8rem"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Un-match (reverses the payment{{ "s" if payments|length > 1 }})</button></form>
+{% elif entry.status == "unmatched" %}
+<h2>Suggestions</h2>
+{% if suggestions %}
+<div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Contact</th><th class="num">Owed</th><th>Why</th><th></th></tr></thead><tbody>
+{% for s in suggestions %}<tr><td><a href="/app/finance/invoices/{{ s.invoice.id }}">{{ s.invoice.reference }}</a></td><td>{{ s.contact_name }}</td><td class="num">{{ s.outstanding|gbp }}</td><td>{{ s.reasons|join(", ") }}</td>
+<td>{% if entry.amount_minor <= s.outstanding %}<form method="post" action="/app/finance/bank/entries/{{ entry.id }}/match" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="invoice1" value="{{ s.invoice.reference }}"><button type="submit">Match</button></form>{% else %}<span class="muted">more than owed</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="muted">No likely invoice found. Enter the invoice number(s) below.</p>{% endif %}
+<h2>Match by invoice number</h2>
+<form method="post" action="/app/finance/bank/entries/{{ entry.id }}/match" class="form" style="max-width:520px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <p class="muted">One invoice takes the whole amount. To split a payment across invoices, give each its amount; they must add up to {{ entry.amount_minor|gbp }}.</p>
+  {% for n in ["1", "2", "3"] %}<div class="row"><label>Invoice number {{ n }}<input type="text" name="invoice{{ n }}"></label><label>Amount (£)<input type="text" inputmode="decimal" name="amount{{ n }}"></label></div>{% endfor %}
+  <div class="actions"><button type="submit">Match</button></div>
+</form>
+<p style="margin-top:1rem"><a class="btn" href="/app/finance/bank/entries/{{ entry.id }}/categorise">Not an invoice payment? Categorise it</a> <span class="muted">(income, an expense, a transfer or bank charges)</span></p>
+<form method="post" action="/app/finance/bank/entries/{{ entry.id }}/ignore" style="margin-top:1rem"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Ignore this line (not for an invoice)</button></form>
+{% elif entry.status == "ignored" and entry.amount_minor > 0 %}
+<form method="post" action="/app/finance/bank/entries/{{ entry.id }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">Put back in the queue</button></form>
+{% endif %}
+{% endblock %}

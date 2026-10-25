@@ -1,0 +1,30 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e .[dev]
+      - name: Scan for forbidden words and personal data
+        run: python tools/scan.py
+      - name: Lint
+        run: ruff check .
+      - name: Type check
+        run: mypy app
+      - name: Database set-up
+        run: python -m app.cli init-db
+      - name: Tests
+        run: pytest -q

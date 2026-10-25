@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}New invoice{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<h2>Who is the invoice for?</h2>
+<form method="get" action="/app/finance/new" class="toolbar" hx-get="/app/finance/new/search" hx-target="#matches" hx-trigger="input changed delay:250ms from:find input, submit">
+  <input type="search" name="q" value="{{ q }}" placeholder="Start typing a name, email or phone" aria-label="Search contacts" autofocus style="min-width:20rem">
+  <noscript><button type="submit">Search</button></noscript>
+  <a class="btn secondary" href="/app/contacts/new">New contact</a>
+</form>
+<div id="matches">{% include "_invoice_contact_results.html" %}</div>
+{% if recent and not q %}
+<h3>Recently invoiced</h3>
+<div class="pickable">{% for c in recent %}<a href="/app/finance/new?contact_id={{ c.id }}"><strong>{{ c.name }}</strong><br><span class="muted">{{ c.email or "no email" }}</span></a>{% endfor %}</div>
+{% endif %}
+{% endblock %}

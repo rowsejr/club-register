@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Events{% endblock %}
+{% block content %}
+<div class="toolbar"><h1 style="margin:0">Events</h1><span class="spacer"></span>
+  <a class="btn secondary" href="/events.ics" title="Subscribe in Google Calendar, Outlook or your phone">Calendar feed (iCal)</a>
+  <a class="btn secondary" href="/whats-on" target="_blank" rel="noopener">Public events page</a>
+  {% if perms|can("events.write") %}<a class="btn" href="/app/events/new">New event</a>{% endif %}</div>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<div class="toolbar">
+  <a class="btn secondary" href="/app/events?year={{ prev[0] }}&amp;month={{ prev[1] }}&amp;view={{ view }}">←</a><strong style="font-size:1.1rem">{{ month_name }} {{ year }}</strong><a class="btn secondary" href="/app/events?year={{ nxt[0] }}&amp;month={{ nxt[1] }}&amp;view={{ view }}">→</a>
+  <span class="spacer"></span>
+  <a class="btn {{ '' if view == 'month' else 'secondary' }}" href="/app/events?year={{ year }}&amp;month={{ month }}&amp;view=month">Month</a><a class="btn {{ '' if view == 'list' else 'secondary' }}" href="/app/events?year={{ year }}&amp;month={{ month }}&amp;view=list">List</a>
+</div>
+{% if view == "month" %}
+<div class="calendar">
+  {% for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}<div class="cal-head">{{ d }}</div>{% endfor %}
+  {% for week in weeks %}{% for day in week %}
+  <div class="cal-day {{ 'empty' if not day }} {{ 'today' if day and today.year == year and today.month == month and today.day == day }}">
+    {% if day %}<div class="cal-num">{{ day }}{% if perms|can("events.write") %} <a href="/app/events/new?start={{ '%04d-%02d-%02dT10:00' % (year, month, day) }}" class="cal-add" title="Add an event on this day">+</a>{% endif %}</div>
+    {% for e in by_day.get(day, []) %}<a class="cal-event {{ 'draft' if not e.published }}" href="/app/events/{{ e.id }}" title="{{ e.title }}">{{ e.start_at|local("%H:%M") }} {{ e.title }}</a>{% endfor %}{% endif %}
+  </div>{% endfor %}{% endfor %}
+</div>
+{% else %}
+<div class="table-wrap"><table><thead><tr><th>When</th><th>Event</th><th>Where</th><th>Tickets</th><th>Status</th></tr></thead><tbody>
+{% for e in month_events|sort(attribute="start_at") %}{% set a = avail[e.id] %}<tr><td>{{ e.start_at|local }}</td><td><a href="/app/events/{{ e.id }}">{{ e.title }}</a>{% if e.event_type %} <span class="muted">{{ e.event_type }}</span>{% endif %}</td><td>{{ e.location }}</td>
+<td>{% if e.bookable %}{{ a.taken }}{% if a.limit is not none %} / {{ a.limit }}{% endif %} sold{% if a.waiting %}, {{ a.waiting }} waiting{% endif %}{% endif %}</td><td><span class="badge {{ 'paid' if e.published else 'draft' }}">{{ "published" if e.published else "draft" }}</span></td></tr>
+{% else %}<tr><td colspan="5" class="muted">Nothing this month.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% endblock %}

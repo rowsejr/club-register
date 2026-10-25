@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}My boats{% endblock %}
+{% block content %}
+<p><a href="/app">← My account</a></p>
+<h1>My boats</h1>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+{% for it in items %}{% set b = it.boat %}
+<div class="card" style="margin-bottom:1rem">
+  <div class="toolbar"><strong>{{ b.name }}</strong> <span class="muted">{{ b.boat_class }} {{ b.sail_number }}</span>
+    <span class="badge {{ 'paid' if it.insurance == 'ok' else ('fail' if it.insurance in ('expired', 'unknown') else 'draft') }}">insurance {{ it.insurance }}</span>
+    <span class="spacer"></span><span class="muted">Space: {{ it.space.name if it.space else "none allocated" }}</span></div>
+  {% if it.is_owner %}
+  <form method="post" action="/app/me/boats/{{ b.id }}" class="form" style="max-width:520px">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row"><label>Insurance (insurer / policy)<input type="text" name="insurance" value="{{ b.insurance or '' }}"></label><label>Insurance expires<input type="date" name="insurance_expiry" value="{{ b.insurance_expiry.isoformat() if b.insurance_expiry else '' }}"></label></div>
+    <div class="row"><label>Sail number<input type="text" name="sail_number" value="{{ b.sail_number }}"></label><label>Colour<input type="text" name="colour" value="{{ b.colour or '' }}"></label></div>
+    <label>Notes<textarea name="notes" rows="2">{{ b.notes or '' }}</textarea></label>
+    <button type="submit">Save</button></form>
+  {% if it.space %}
+  <div class="alert info" style="margin-top:.8rem">Will you keep <strong>{{ it.space.name }}</strong> for next season?
+    <form method="post" action="/app/me/boats/{{ b.id }}/space/keep" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">Yes, keep it</button></form>
+    <form method="post" action="/app/me/boats/{{ b.id }}/space/leave" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">No, I am giving it up</button></form></div>
+  {% else %}
+  <form method="post" action="/app/me/waiting" class="toolbar" style="margin-top:.8rem"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="boat_id" value="{{ b.id }}"><span class="muted">No space yet?</span><button type="submit" class="secondary">Join the waiting list</button></form>
+  {% endif %}
+  {% else %}<p class="muted">You are listed as crew on this boat; the owner keeps its details up to date.</p>{% endif %}
+</div>
+{% else %}<p class="muted">No boats are linked to you yet. If you have a boat at the club, the harbourmaster can add it.</p>{% endfor %}
+{% endblock %}

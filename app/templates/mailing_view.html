@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ mailing.subject }}{% endblock %}
+{% block content %}
+<p><a href="/app/mailings">← Mailings</a></p>
+<div class="toolbar"><h1 style="margin:0">{{ mailing.subject }}</h1><span class="badge {{ 'paid' if mailing.status == 'sent' else 'draft' }}">{{ mailing.status }}</span></div>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<p class="muted">To: {% if mailing.audience %}{% for k, v in mailing.audience.items() %}<span class="chip">{{ k }}: {{ v }}</span> {% endfor %}{% else %}everyone in Contacts{% endif %}</p>
+
+{% if ready %}
+{% if ready.unknown_fields %}<div class="alert error">Unknown merge field(s): {% for f in ready.unknown_fields %}<code>{{ "{" ~ f ~ "}" }}</code> {% endfor %}. Edit the mailing to fix them.</div>{% endif %}
+<div class="cards">
+  <div class="card"><div class="label">Will receive it</div><div class="metric">{{ ready.recipients|length }}</div></div>
+  <div class="card"><div class="label">Left out</div><div class="metric">{{ ready.skipped|length }}</div></div>
+</div>
+{% if ready.recipients %}
+<h2>What the first person will get</h2>
+<div class="card" style="white-space:pre-wrap"><strong>To: {{ ready.recipients[0].email }}</strong>
+<strong>Subject: {{ ready.recipients[0].subject }}</strong>
+
+{{ ready.recipients[0].body }}</div>
+<details><summary>Everyone who will receive it ({{ ready.recipients|length }})</summary><ul>{% for r in ready.recipients %}<li>{{ r.contact.name }} &lt;{{ r.email }}&gt;</li>{% endfor %}</ul></details>
+{% endif %}
+{% if ready.skipped %}<details><summary>Left out ({{ ready.skipped|length }})</summary><ul>{% for s in ready.skipped %}<li>{{ s }}</li>{% endfor %}</ul></details>{% endif %}
+{% if perms|can("members.write") %}
+<form method="post" action="/app/mailings/{{ mailing.id }}/send" class="toolbar" style="margin-top:1rem">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label class="check"><input type="checkbox" name="confirm" value="1"> <span>I have checked the message and the list: send it to {{ ready.recipients|length }} people</span></label>
+  <button type="submit" {{ "disabled" if not ready.recipients or ready.unknown_fields }}>Send</button>
+</form>
+<form method="post" action="/app/mailings/{{ mailing.id }}/delete" style="margin-top:.5rem"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Delete this draft</button></form>
+{% endif %}
+{% else %}
+<div class="card" style="white-space:pre-wrap">{{ mailing.body }}</div>
+<p>Sent {{ mailing.sent_at|dmy }} to <strong>{{ mailing.sent_count }}</strong> people. <a href="/app/finance/emails">See each message in the email log.</a></p>
+{% if mailing.skipped %}<details><summary>Left out ({{ mailing.skipped|length }})</summary><ul>{% for s in mailing.skipped %}<li>{{ s }}</li>{% endfor %}</ul></details>{% endif %}
+{% endif %}
+{% endblock %}

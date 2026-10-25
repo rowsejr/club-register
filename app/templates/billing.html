@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Membership billing{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<h2>Membership billing run</h2>
+<p class="muted">Renew everyone whose latest membership is active: <strong>prepare</strong> the list, review it, then <strong>confirm and invoice</strong>. Safe to repeat: nobody is billed twice. Fees come from <a href="/app/finance/types">membership types</a>.</p>
+<div class="toolbar">
+  {% for p in periods %}<a class="btn {{ '' if chosen and chosen.id == p.id else 'secondary' }}" href="/app/finance/billing?period={{ p.id }}">{{ p.name }}</a>{% endfor %}
+  <span class="spacer"></span>
+  <form method="post" action="/app/finance/billing/period" class="toolbar" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="number" name="year" value="{{ next_year }}" aria-label="Year" style="width:6rem"><button class="secondary" type="submit">New period</button></form>
+</div>
+{% if chosen %}
+<div class="cards" style="margin-bottom:1rem">
+  <div class="card"><div class="metric">{{ summary.due }}</div><div class="label">due to renew in {{ chosen.name }}</div></div>
+  <div class="card"><div class="metric">{{ summary.total|gbp }}</div><div class="label">to be billed</div></div>
+  <div class="card"><div class="metric {{ 'warn' if summary.no_fee }}">{{ summary.no_fee }}</div><div class="label">need attention (no type or fee)</div></div>
+  <div class="card"><div class="metric">{{ summary.confirmed }}</div><div class="label">already confirmed</div></div>
+</div>
+<div class="toolbar">
+  <form method="post" action="/app/finance/billing/{{ chosen.id }}/prepare" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">1. Prepare renewals</button></form>
+</div>
+<form method="post" action="/app/finance/billing/{{ chosen.id }}/bill">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="table-wrap"><table>
+  <thead><tr><th></th><th>Member</th><th>Membership type</th><th class="num">Fee</th><th>Renewal</th><th>Note</th></tr></thead><tbody>
+  {% for r in rows %}<tr>
+    <td>{% if r.renewal and r.state != "confirmed" %}<input type="checkbox" name="member" value="{{ r.member.id }}" aria-label="Select {{ r.member.name }}">{% endif %}</td>
+    <td><a href="/app/members/{{ r.member.id }}">{{ r.member.name }}</a></td><td>{{ r.mtype.name if r.mtype else "—" }}</td><td class="num">{{ r.fee_minor|gbp if r.fee_minor is not none else "—" }}</td>
+    <td><span class="badge {{ 'paid' if r.state == 'confirmed' else ('cancelled' if r.state == 'declined' else 'draft') }}">{{ r.state }}</span></td><td class="muted" style="white-space:normal">{{ r.note }}</td></tr>
+  {% else %}<tr><td colspan="6" class="muted">Nobody is due to renew into {{ chosen.name }}. Members with an active membership in the previous period appear here.</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% if rows %}
+  <div class="actions" style="margin-top:.8rem">
+    <button type="submit">2. Confirm and invoice the ticked members</button>
+    <button type="submit" name="everyone" value="1" class="secondary" data-confirm="Bill every member in this list ({{ summary.due }} people, about {{ summary.total|gbp }})?">Bill everyone listed</button>
+    <label class="check" style="font-weight:400"><input type="checkbox" name="draft" value="1"> create as drafts to review first</label></div>
+  {% endif %}
+</form>
+{% else %}<p class="muted">Create a period to begin.</p>{% endif %}
+{% endblock %}

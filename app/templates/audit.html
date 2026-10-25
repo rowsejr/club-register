@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_pager.html" import render_pager %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+<p class="muted">Every change to money, people and settings is recorded here with who made it. Where a record was edited, the old and new values are shown.</p>
+<form method="get" action="/app/admin/audit" class="toolbar">
+  <input type="text" name="actor" value="{{ f.actor }}" placeholder="Who (email)" aria-label="Who" style="width:11rem">
+  <select name="action" aria-label="What happened"><option value="">Any action</option>{% for a in actions %}<option value="{{ a }}" {{ "selected" if f.action == a }}>{{ a }}</option>{% endfor %}</select>
+  <input type="text" name="target" value="{{ f.target }}" placeholder="Record type or number" aria-label="Record" style="width:10rem">
+  <input type="text" name="q" value="{{ f.q }}" placeholder="Text in the details" aria-label="Details contain" style="width:11rem">
+  <label>From <input type="date" name="start" value="{{ f.start }}"></label><label>To <input type="date" name="end" value="{{ f.end }}"></label>
+  <button type="submit">Filter</button> <a class="btn secondary" href="/app/admin/audit">Clear</a></form>
+<div class="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Record</th><th>Details</th></tr></thead><tbody>
+{% for r in rows %}<tr><td style="white-space:nowrap">{{ r.created_at|local("%d %b %Y %H:%M") }}</td><td>{{ r.actor_email }}<br><span class="muted">{{ r.actor_role }}</span></td><td>{{ r.action }}</td><td>{{ r.target_type }} {{ r.target_id }}</td>
+<td style="white-space:normal">{% set d = r.details or {} %}
+  {% if d.changes %}<table class="diff"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>{% for field, c in d.changes.items() %}<tr><td>{{ field }}</td><td class="old">{{ "" if c.before is none else c.before }}</td><td class="new">{{ "" if c.after is none else c.after }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  {% for k, v in d.items() if k != "changes" %}<span class="muted">{{ k }}:</span> {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Nothing matches.</td></tr>{% endfor %}
+</tbody></table></div>
+{{ render_pager(pager, "/app/admin/audit", params, "") }}
+{% endblock %}

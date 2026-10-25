@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Income by nominal{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+{% include "_report_nav.html" %}
+<form method="get" action="/app/finance/reports/income" class="toolbar no-print">
+  <label class="inline">From <input type="date" name="start" value="{{ start.isoformat() }}"></label>
+  <label class="inline">To <input type="date" name="end" value="{{ end.isoformat() }}"></label>
+  <select name="basis" aria-label="Basis"><option value="invoiced" {{ "selected" if basis == "invoiced" }}>Invoiced in the period</option><option value="received" {{ "selected" if basis == "received" }}>Received in the bank</option></select>
+  <button type="submit" class="secondary">Show</button>
+  <span class="spacer"></span>
+  <a class="btn secondary" href="/app/finance/reports/income.csv?start={{ start }}&amp;end={{ end }}&amp;basis={{ basis }}">Export CSV</a>
+</form>
+<h2>{{ "Income invoiced" if basis == "invoiced" else "Money received" }}, {{ start|dmy }} to {{ end|dmy }}</h2>
+<p class="muted">{% if basis == "invoiced" %}What was billed by invoice date: lines of issued, part-paid, paid and written-off invoices, less credit notes.{% else %}Money in the bank in the period, built from the bank lines: invoice payments split over their nominals, plus income and expenses entered in the cash book.{% endif %}
+Compared with {{ ly[0]|dmy }} to {{ ly[1]|dmy }}.</p>
+<div class="table-wrap"><table class="report"><thead><tr><th>Nominal</th><th class="num">This period</th><th class="num">Last year</th><th class="num">Change</th></tr></thead><tbody>
+{% for code, label, now, before in rows %}<tr><td>{{ code }} {{ label }}</td><td class="num">{{ now|gbp }}</td><td class="num muted">{{ before|gbp }}</td><td class="num">{{ (now - before)|gbp }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Nothing in this period.</td></tr>{% endfor %}
+</tbody>{% if rows %}<tfoot><tr><td>Total</td><td class="num">{{ rows|sum(attribute=2)|gbp }}</td><td class="num">{{ rows|sum(attribute=3)|gbp }}</td><td class="num">{{ (rows|sum(attribute=2) - rows|sum(attribute=3))|gbp }}</td></tr></tfoot>{% endif %}</table></div>
+{% if basis == "received" and spent %}
+<h3>Money spent</h3>
+<div class="table-wrap"><table class="report"><thead><tr><th>Nominal</th><th class="num">This period</th><th class="num">Last year</th><th class="num">Change</th></tr></thead><tbody>
+{% for code, label, now, before in spent %}<tr><td>{{ code }} {{ label }}</td><td class="num">{{ now|gbp }}</td><td class="num muted">{{ before|gbp }}</td><td class="num">{{ (now - before)|gbp }}</td></tr>{% endfor %}
+</tbody><tfoot><tr><td>Total</td><td class="num">{{ spent|sum(attribute=2)|gbp }}</td><td class="num">{{ spent|sum(attribute=3)|gbp }}</td><td class="num">{{ (spent|sum(attribute=2) - spent|sum(attribute=3))|gbp }}</td></tr></tfoot></table></div>
+{% endif %}
+{% if written_off %}<p class="muted">Written off in the period (not deducted above): {{ written_off|gbp }}.</p>{% endif %}
+{% endblock %}

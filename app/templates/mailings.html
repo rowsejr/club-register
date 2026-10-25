@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Mailings{% endblock %}
+{% block content %}
+<div class="toolbar"><h1 style="margin:0">Mailings</h1><span class="spacer"></span>{% if perms|can("members.write") %}<a class="btn" href="/app/mailings/new">New mailing</a>{% endif %}</div>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<p class="muted">Emails to a group of members: choose who, write once, check the list, send. A record is kept of every one. In the demo and test setups nothing is really sent (see the <a href="/app/finance/emails">email log</a>).</p>
+<div class="table-wrap"><table><thead><tr><th>Subject</th><th>Created</th><th>Status</th><th class="num">Sent to</th><th></th></tr></thead><tbody>
+{% for m in rows %}<tr><td><a href="/app/mailings/{{ m.id }}">{{ m.subject }}</a></td><td>{{ m.created_at|dmy }}</td><td><span class="badge {{ 'paid' if m.status == 'sent' else 'draft' }}">{{ m.status }}</span></td><td class="num">{{ m.sent_count if m.status == "sent" else "" }}</td><td>{{ m.created_by or "" }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">No mailings yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

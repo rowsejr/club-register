@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}My details{% endblock %}
+{% block content %}
+<p><a href="/app">← My account</a></p>
+<h1>My details</h1>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<form class="form" method="post" action="/app/me/profile">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Name<input type="text" value="{{ contact.name }}" disabled></label>
+  <label>Email (used to sign in)<input type="text" value="{{ contact.email or '' }}" disabled></label>
+  <p class="muted">To change your name or sign-in email, ask the membership secretary.</p>
+  <label>Phone<input type="text" name="phone" value="{{ contact.phone or '' }}"></label>
+  <label>Address<textarea name="address" rows="3">{{ contact.address or '' }}</textarea></label>
+  <label>Date of birth (YYYY-MM-DD)<input type="text" name="birth_date" value="{{ contact.birth_date.isoformat() if contact.birth_date else '' }}"></label>
+  <label class="check"><input type="checkbox" name="newsletters" value="1" {{ "checked" if not contact.suppressed }}> Send me club news and events by email</label>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

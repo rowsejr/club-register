@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Enquiry from {{ enquiry.name }}{% endblock %}
+{% block content %}
+<h1>New members</h1>
+{% set sub = "enquiries" %}{% include "_people_nav.html" %}
+<div class="toolbar"><h2 style="margin:0">{{ enquiry.name }} <span class="badge {{ 'paid' if enquiry.status == 'converted' else 'draft' }}">{{ enquiry.status }}</span></h2></div>
+<div class="cards" style="margin-bottom:1rem">
+  <div class="card"><div class="label">Email</div>{{ enquiry.email or "—" }}</div>
+  <div class="card"><div class="label">Phone</div>{{ enquiry.phone or "—" }}</div>
+  <div class="card"><div class="label">Interested in</div>{{ (enquiry.interest or "—")|replace("_", " ") }}</div>
+  <div class="card"><div class="label">Received</div>{{ enquiry.created_at|dmy }} · {{ enquiry.source }}</div>
+  <div class="card"><div class="label">Assigned to</div>{{ enquiry.assigned_to or "nobody yet" }}</div>
+</div>
+{% if existing %}<div class="alert info">This email already belongs to <a href="/app/contacts/{{ existing.id }}">{{ existing.name }}</a>{% if existing.member_id %} (a member){% endif %}.</div>{% endif %}
+{% if enquiry.message %}<div class="card" style="white-space:pre-wrap;margin-bottom:1rem">{{ enquiry.message }}</div>{% endif %}
+{% if enquiry.application_id %}<p><a class="btn" href="/app/applications/{{ enquiry.application_id }}">Open the application →</a></p>{% endif %}
+
+{% if enquiry.status in ("new", "contacted", "unverified") %}
+<div class="cards">
+  <form method="post" action="/app/enquiries/{{ enquiry.id }}/convert" class="card form"><input type="hidden" name="csrf" value="{{ csrf }}"><strong>Start an application</strong>
+    <label>Membership<select name="membership_type"><option value="">Decide later</option>{% for t in types %}<option value="{{ t.id }}">{{ t.name }}{% if t.fee_minor is not none %} · {{ t.fee_minor|gbp }}{% endif %}</option>{% endfor %}</select></label>
+    <button type="submit" {{ "disabled" if enquiry.status == "unverified" }}>Convert to application</button></form>
+  <form method="post" action="/app/enquiries/{{ enquiry.id }}/assign" class="card form"><input type="hidden" name="csrf" value="{{ csrf }}"><strong>Assign</strong>
+    <label>To (email)<input type="text" name="assignee" value="{{ enquiry.assigned_to or user }}"></label><button class="secondary" type="submit">Assign</button></form>
+  <div class="card form"><strong>Update</strong>
+    <form method="post" action="/app/enquiries/{{ enquiry.id }}/status" class="actions" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="contacted"><button class="secondary" type="submit" {{ "disabled" if enquiry.status == "unverified" }}>Mark as contacted</button></form>
+    <form method="post" action="/app/enquiries/{{ enquiry.id }}/status" class="form" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="closed"><label>Close with outcome<input type="text" name="outcome" placeholder="e.g. Decided not to join"></label><button class="secondary" type="submit">Close</button></form>
+    <form method="post" action="/app/enquiries/{{ enquiry.id }}/status" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="spam"><button class="danger" type="submit">Mark as spam</button></form></div>
+</div>
+{% endif %}
+
+<h2>Notes</h2>
+<div class="table-wrap"><table><tbody>
+{% for n in notes %}<tr><td style="white-space:nowrap">{{ n.created_at|dmy }}</td><td>{{ n.author }}</td><td style="white-space:normal">{{ n.body }}</td></tr>{% else %}<tr><td class="muted">No notes yet.</td></tr>{% endfor %}
+</tbody></table></div>
+<form method="post" action="/app/enquiries/{{ enquiry.id }}/note" class="toolbar" style="margin-top:.6rem"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="body" placeholder="Add a note" aria-label="Note" style="flex:1" required><button class="secondary" type="submit">Add note</button></form>
+{% endblock %}

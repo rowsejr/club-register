@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="cards">
+{% for c in cards %}
+  {% if c.href %}<a class="card" href="{{ c.href }}">{% else %}<div class="card">{% endif %}
+    <div class="metric {{ 'warn' if c.warn and c.value }}">{{ c.value }}</div>
+    <div class="label">{{ c.label }}</div>
+  {% if c.href %}</a>{% else %}</div>{% endif %}
+{% endfor %}
+</div>
+{% endblock %}

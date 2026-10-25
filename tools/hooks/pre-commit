@@ -1,0 +1,3 @@
+#!/bin/sh
+# Refuse a commit that adds a forbidden word or personal data (see tools/scan.py).
+exec python tools/scan.py --staged

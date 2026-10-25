@@ -1,0 +1,14 @@
+{
+  "editor.formatOnSave": true,
+  "editor.trimAutoWhitespace": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true
+  },
+  "markdown.preview.breaks": true,
+  "markdown.validate.enabled": true,
+  "markdown.extension.toc.updateOnSave": true
+}

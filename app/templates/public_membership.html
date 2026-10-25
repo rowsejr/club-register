@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Membership{% endblock %}
+{% block content %}
+<h1>Join {{ club }}</h1>
+<p>Whether you have sailed for years or have never stepped in a boat, we would love to meet you. You can ask a question first, or apply to join straight away.</p>
+<div class="toolbar"><a class="btn secondary" href="/join-us">Ask a question</a><a class="btn" href="/join">Join online</a></div>
+<h2>Membership</h2>
+<div class="cards">
+{% for t in types %}
+  <div class="card"><strong>{{ t.name }}</strong>
+    <div class="metric" style="font-size:1.6rem">{{ t.fee_minor|gbp if t.fee_minor is not none else "Ask us" }}<span class="label"> a year</span></div>
+    {% if t.joining_fee_minor %}<div class="label">plus a {{ t.joining_fee_minor|gbp }} joining fee</div>{% endif %}
+    {% if t.description %}<p class="muted">{{ t.description }}</p>{% endif %}
+    <a class="btn secondary" href="/join?type={{ t.id }}">Apply for this</a></div>
+{% else %}<p class="muted">Online joining is not open yet. Please <a href="/join-us">get in touch</a> and we will help you join.</p>{% endfor %}
+</div>
+<p class="muted"><a href="/privacy">How we look after your information</a></p>
+{% endblock %}

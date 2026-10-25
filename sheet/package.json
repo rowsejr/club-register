@@ -1,0 +1,22 @@
+{
+  "name": "club-register",
+  "version": "0.1.0",
+  "description": "A sailing club register in Google Sheets: members, boats, invoices, Stripe card payments, forms and calendar.",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "check": "tsc -p tsconfig.json",
+    "test": "node tests/run-tests.js && node tests/formulas.test.js && node tests/builder.test.js",
+    "bundle": "node tools/bundle.js",
+    "test:bundle": "node tests/run-tests.js --bundle"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/google-apps-script": "^1.0.83",
+    "hyperformula": "^2.7.1",
+    "typescript": "^5.6.3"
+  },
+  "private": true
+}

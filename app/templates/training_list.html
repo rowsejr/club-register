@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_pager.html" import render_pager %}
+{% block title %}Training{% endblock %}
+{% block content %}
+<h1>Training</h1>
+{% include "_training_nav.html" %}
+<div class="toolbar">{% for key, label in tabs %}<a class="btn {{ '' if tab == key else 'secondary' }}" href="/app/training?tab={{ key }}">{{ label }}</a>{% endfor %}</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Course</th><th>When</th><th>Level</th><th class="num">Price</th><th>Places</th><th>Status</th></tr></thead><tbody>
+{% for r in rows %}{% set c = r.course %}{% set taken, free, waiting = r.seats %}<tr>
+  <td><a href="/app/training/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.starts_at|local }}</td><td>{{ c.level or "" }}</td><td class="num">{{ (c.price_minor or 0)|gbp if c.price_minor else "Free" }}</td>
+  <td><span class="badge {{ 'fail' if free == 0 else 'paid' }}">{{ taken }} / {{ c.capacity }}</span>{% if waiting %} <span class="muted">+{{ waiting }} waiting</span>{% endif %}</td>
+  <td><span class="badge {{ 'cancelled' if c.status == 'cancelled' else ('paid' if c.status == 'open' else 'draft') }}">{{ c.status or "open" }}</span></td></tr>
+{% else %}<tr><td colspan="6" class="muted">No courses here.</td></tr>{% endfor %}
+</tbody></table></div>
+{{ render_pager(pager, "/app/training", {"tab": tab}, none) }}
+{% endblock %}

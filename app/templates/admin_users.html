@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<h1>Users and roles</h1>
+{% if msg %}<div class="alert info" role="status">{{ msg }}</div>{% endif %}
+<p class="muted">Anyone with a member record can sign in as a Member and manage their own membership. Give a volunteer a <strong>hat</strong> to let them do a job; hats add up, and removing one takes effect immediately (their sessions end).</p>
+<div class="table-wrap"><table><thead><tr><th>Email</th><th>Base role</th><th>Hats</th><th>Can do</th><th></th></tr></thead><tbody>
+{% for u in users %}<tr><td>{{ u.email }}</td><td>{{ u.role.value }}</td>
+<td>{% for key in (u.extra_roles or "").split(",") if key in hats %}<span class="badge">{{ hats[key].label }}</span> {% endfor %}</td>
+<td style="white-space:normal;max-width:24rem" class="muted">{{ "everything" if "*" in effective[u.id] else (effective[u.id]|join(", ") or "own account only") }}</td>
+<td><form method="post" action="/app/admin/users/{{ u.id }}/delete" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Remove</button></form></td></tr>
+{% else %}<tr><td colspan="5" class="muted">No explicit roles.</td></tr>{% endfor %}
+</tbody></table></div>
+<h2>Add or change a volunteer</h2>
+<form class="form" method="post" action="/app/admin/users">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Email<input type="email" name="email" required></label>
+  <label>Base role
+    <select name="role"><option value="Committee">Committee: sees everything, decides applications</option><option value="Member">Member: own account only (add hats below)</option><option value="Admin">Admin: everything, including users and imports</option></select></label>
+  <fieldset style="border:1px solid var(--line);border-radius:8px;padding:.6rem .9rem"><legend>Hats</legend>
+    {% for key, hat in hats.items() %}<label class="check"><input type="checkbox" name="hat_{{ key }}" value="1"> <span><strong>{{ hat.label }}</strong><br><span class="muted">{{ hat.help }}</span></span></label>{% endfor %}
+  </fieldset>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Accounts by month{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+{% include "_report_nav.html" %}
+<form method="get" action="/app/finance/reports/accounts" class="toolbar no-print">
+  <label class="inline">From <input type="date" name="start" value="{{ start.isoformat() }}"></label>
+  <label class="inline">To <input type="date" name="end" value="{{ end.isoformat() }}"></label>
+  <button type="submit" class="secondary">Show</button>
+  <span class="spacer"></span>
+  <a class="btn secondary" href="/app/finance/reports/accounts.csv?start={{ start }}&amp;end={{ end }}">Export CSV</a>
+  <button type="button" class="secondary" data-print>Print</button>
+</form>
+<h2>Accounts month by month</h2>
+<p class="muted">What each bank account started each month with, what came in, what went out and where it ended, built from the bank lines.</p>
+{% for a in accounts %}
+<h3>{{ a.account.name }}</h3>
+<div class="table-wrap"><table class="report"><thead><tr><th>Month</th><th class="num">Opening</th><th class="num">In</th><th class="num">Out</th><th class="num">Closing</th></tr></thead><tbody>
+{% for m in a.months %}<tr><td>{{ m.month.strftime("%B %Y") }}</td><td class="num">{{ m.opening|gbp }}</td><td class="num">{{ m.money_in|gbp }}</td><td class="num">{{ m.money_out|gbp }}</td><td class="num"><strong>{{ m.closing|gbp }}</strong></td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="muted">No bank accounts yet.</p>{% endfor %}
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Bank rules{% endblock %}
+{% block content %}
+<h1>Finance</h1>
+{% include "_finance_nav.html" %}
+<p><a href="/app/finance/bank">← Back to the bank</a></p>
+{% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
+{% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
+<h2>Bank rules</h2>
+<p class="muted">A rule says “a line containing this text is always that”. New lines are categorised as they are uploaded, so repeat items (bank charges, insurance, PayPal transfers) never need touching. The longest matching text wins.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Text to look for</th><th>Account</th><th>Direction</th><th>Becomes</th><th>Nominal</th><th class="num">Used</th><th></th></tr></thead>
+<tbody>
+{% for r in rules %}<tr class="{{ '' if r.active else 'muted' }}"><td><code>{{ r.pattern }}</code>{% if r.payee %}<br><span class="muted">{{ r.payee }}</span>{% endif %}</td><td>{{ names.get(r.account_id, "any") }}</td><td>{{ r.direction }}</td>
+<td>{{ kinds.get(r.kind, r.kind) }}{% if r.transfer_account_id %} to {{ names.get(r.transfer_account_id, "?") }}{% endif %}</td><td>{{ r.nominal_code or "" }}</td><td class="num">{{ r.times_used }}</td>
+<td style="white-space:nowrap">
+  <form method="post" action="/app/finance/bank/rules/{{ r.id }}/toggle" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">{{ "Pause" if r.active else "Resume" }}</button></form>
+  <form method="post" action="/app/finance/bank/rules/{{ r.id }}/delete" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary" type="submit">Delete</button></form></td></tr>
+{% else %}<tr><td colspan="7" class="muted">No rules yet. Categorise a line and tick “save as a rule”, or add one below.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if perms|can("finance.write") %}
+<h3>Add a rule</h3>
+<form method="post" action="/app/finance/bank/rules" class="form" style="max-width:760px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="row"><label>Text to look for<input type="text" name="pattern" placeholder="e.g. LLOYDS BANK CHARGES" required></label>
+  <label>On account<select name="account"><option value="">Any account</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select></label>
+  <label>Direction<select name="direction"><option value="any">Money in or out</option><option value="in">Money in only</option><option value="out">Money out only</option></select></label></div>
+  <div class="row"><label>Becomes<select name="kind">{% for k, label in kinds.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></label>
+  <label>Nominal code<select name="nominal"><option value="">—</option><optgroup label="Income">{% for c in income %}<option value="{{ c.code }}">{{ c.code }} {{ c.label }}</option>{% endfor %}</optgroup><optgroup label="Expenses">{% for c in expense %}<option value="{{ c.code }}">{{ c.code }} {{ c.label }}</option>{% endfor %}</optgroup></select></label>
+  <label>Other account <span class="muted">(transfers)</span><select name="transfer"><option value="">—</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select></label></div>
+  <label>Who from / to (optional)<input type="text" name="payee"></label>
+  <div class="actions"><button type="submit">Save rule and apply it now</button></div>
+</form>
+{% endif %}
+{% endblock %}

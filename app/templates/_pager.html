@@ -1,0 +1,11 @@
+{% macro render_pager(p, base, params, target) %}
+{% set prev_qs = (params | combine({'page': p.page - 1})) | urlencode %}
+{% set next_qs = (params | combine({'page': p.page + 1})) | urlencode %}
+<div class="pager">
+  <span>{{ p.total }} record{{ "" if p.total == 1 else "s" }} · page {{ p.page }} of {{ p.pages }}</span>
+  <span>
+    {% if p.page > 1 %}<a href="{{ base }}?{{ prev_qs }}"{% if target %} hx-get="{{ base }}?{{ prev_qs }}" hx-target="{{ target }}" hx-push-url="true"{% endif %}>← Prev</a>{% endif %}
+    {% if p.page < p.pages %}<a href="{{ base }}?{{ next_qs }}"{% if target %} hx-get="{{ base }}?{{ next_qs }}" hx-target="{{ target }}" hx-push-url="true"{% endif %}>Next →</a>{% endif %}
+  </span>
+</div>
+{% endmacro %}

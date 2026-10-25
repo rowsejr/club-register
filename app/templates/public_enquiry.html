@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Get in touch{% endblock %}
+{% block content %}
+<h1>Get in touch</h1>
+<p class="muted">Tell us a little about what you are looking for and a member of the club will reply.</p>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+<form class="form" method="post" action="/join-us">
+  <input type="hidden" name="ft" value="{{ ft }}">
+  <div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+  <label>Your name<input type="text" name="name" value="{{ v.name or '' }}" required maxlength="255" autocomplete="name"></label>
+  <div class="row"><label>Email<input type="email" name="email" value="{{ v.email or '' }}" required autocomplete="email"></label><label>Phone (optional)<input type="text" name="phone" value="{{ v.phone or '' }}" autocomplete="tel"></label></div>
+  <label>What are you interested in?
+    <select name="interest">{% for i in interests %}<option value="{{ i }}">{{ i|replace("_", " ")|capitalize }}</option>{% endfor %}</select></label>
+  <label>Your message<textarea name="message" rows="5" maxlength="4000">{{ v.message or '' }}</textarea></label>
+  <label class="check"><input type="checkbox" name="consent" value="1" required> You can contact me about this enquiry. See the <a href="/privacy" target="_blank" rel="noopener">privacy notice</a>.</label>
+  <button type="submit">Send</button>
+</form>
+{% endblock %}

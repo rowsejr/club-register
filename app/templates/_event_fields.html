@@ -1,0 +1,17 @@
+<form class="form" method="post" action="{{ '/app/events/' ~ event.id if event else '/app/events' }}" style="max-width:720px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Title<input type="text" name="title" value="{{ v.title }}" required></label>
+  <div class="row"><label>Starts<input type="datetime-local" name="start" value="{{ v.start }}" required></label><label>Ends <span class="muted">(optional)</span><input type="datetime-local" name="end" value="{{ v.end }}"></label></div>
+  <div class="row"><label>Where<input type="text" name="location" value="{{ v.location }}"></label><label>Kind <span class="muted">(Racing, Social, Meeting…)</span><input type="text" name="event_type" value="{{ v.event_type }}"></label></div>
+  <label>Description <span class="muted">(shown on the public page)</span><textarea name="description" rows="4">{{ v.description }}</textarea></label>
+  <fieldset style="border:1px solid var(--line);border-radius:8px;padding:.6rem .9rem"><legend>Tickets</legend>
+    <label class="check"><input type="checkbox" name="bookable" value="1" {{ "checked" if v.bookable }}> <span>Tickets can be bought for this event</span></label>
+    <div class="row"><label>Places in all <span class="muted">(blank = unlimited)</span><input type="number" min="0" name="limit" value="{{ v.limit }}"></label><label>Waiting list size <span class="muted">(blank = none)</span><input type="number" min="0" name="waiting" value="{{ v.waiting }}"></label>
+    <label>Sales close <span class="muted">(blank = when it starts)</span><input type="datetime-local" name="closes" value="{{ v.closes }}"></label></div>
+    <label>Income goes to nominal <select name="nominal"><option value="">Open meetings (default)</option>{% for c in nominals %}<option value="{{ c.code }}" {{ "selected" if v.nominal == c.code }}>{{ c.code }} {{ c.label }}</option>{% endfor %}</select></label>
+  </fieldset>
+  <label>Group <span class="muted">(series or season it belongs to)</span><input type="text" name="group" value="{{ v.group }}"></label>
+  <label>Internal notes<textarea name="notes" rows="2">{{ v.notes }}</textarea></label>
+  <label class="check"><input type="checkbox" name="published" value="1" {{ "checked" if v.published }}> <span>Show on the public events page and calendar feed</span></label>
+  <div class="actions"><button type="submit">Save</button></div>
+</form>

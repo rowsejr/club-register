@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Year end{% endblock %}
+{% block content %}
+<h1>Year end</h1>
+{% include "_finance_nav.html" %}
+<div class="cards">
+  <div class="card"><div class="label">Financial year</div><div class="metric" style="font-size:1.1rem">{{ start|dmy }} to {{ end|dmy }}</div>
+    <div class="label"><a href="/app/admin/year-end?year={{ start.year - 1 }}">earlier year</a>{% if end < today %} · <a href="/app/admin/year-end?year={{ start.year + 1 }}">later year</a>{% endif %}</div></div>
+  <div class="card"><div class="label">Books are closed up to</div><div class="metric" style="font-size:1.1rem">{{ lock|dmy if lock else "nothing yet" }}</div></div>
+</div>
+
+<h2>Before you close the year</h2>
+<div class="table-wrap"><table><tbody>
+  <tr><td>Bank lines not yet matched or categorised</td><td class="num"><strong>{{ ready.unmatched_lines }}</strong></td><td>{% if ready.unmatched_lines %}<a href="/app/finance/bank">Deal with them first</a>{% else %}<span class="badge paid">none</span>{% endif %}</td></tr>
+  <tr><td>Draft invoices dated in the year</td><td class="num"><strong>{{ ready.drafts }}</strong></td><td>{% if ready.drafts %}<a href="/app/finance?status=draft">Issue or delete them</a>{% else %}<span class="badge paid">none</span>{% endif %}</td></tr>
+  <tr><td>Invoices still unpaid at the end of the year</td><td class="num"><strong>{{ ready.open_invoices }}</strong></td><td class="muted">these carry forward as debtors</td></tr>
+</tbody></table></div>
+
+<h2>The examiner's pack</h2>
+<p>A zip of spreadsheets for the independent examiner: sales by line, payments received, the cash book, debtors at the year end and the member list. Nothing in it is typed in by hand.</p>
+<p><a class="btn" href="/app/admin/year-end/pack.zip?year={{ start.year }}">Download the pack for {{ start|dmy }} to {{ end|dmy }}</a></p>
+
+<h2>Close the books</h2>
+<p>Once closed, nothing dated on or before the lock date can be issued, paid, voided, reversed or re-categorised. Corrections are made with a credit note dated today. Close the year only after the examiner has what they need.</p>
+<form method="post" action="/app/admin/year-end/lock" class="toolbar"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Close up to <input type="date" name="through" value="{{ end.isoformat() if end < today else '' }}" max="{{ latest.isoformat() }}" required></label>
+  <button type="submit">Close the books</button></form>
+{% if lock and is_admin %}
+<h3>Reopen (administrator only)</h3>
+<form method="post" action="/app/admin/year-end/lock" class="toolbar"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="through" value="">
+  <input type="text" name="reason" placeholder="Why are the books being reopened?" required style="min-width:22rem" aria-label="Reason"><button class="secondary" type="submit">Reopen all closed periods</button></form>
+{% endif %}
+{% endblock %}

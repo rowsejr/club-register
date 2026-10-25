@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Demo payment{% endblock %}
+{% block content %}
+<div class="login card">
+  <h1>Demo payment page</h1>
+  <p class="alert info">This is a <strong>pretend</strong> payment provider for the demo. No money moves. In real use this page is GoCardless (Direct Debit) or Stripe (card).</p>
+  <p>Paying <strong>{{ payment.amount_minor|gbp }}</strong> to {{ club }} for invoice {{ invoice.reference }} by <strong>{{ "Direct Debit" if payment.method == "direct_debit" else "card" }}</strong>.</p>
+  {% if status == "confirmed" %}<p>This payment has already been confirmed.</p>
+  {% else %}<form method="post" action="/pay/{{ payment.token }}"><button type="submit">Pay {{ payment.amount_minor|gbp }} (demo)</button></form>{% endif %}
+</div>
+{% endblock %}
