@@ -50,7 +50,8 @@ def _month(year: int | None, month: int | None) -> tuple[int, int]:
 
 
 @router.get("/app/events", response_class=HTMLResponse)
-def calendar_page(request: Request, year: int | None = None, month: int | None = None, view: str = "month", msg: str = "", err: str = "", session: SessionRecord = Depends(READ), db: Session = Depends(get_db)) -> Response:
+def calendar_page(request: Request, year: int | None = None, month: int | None = None, view: str = "coming", msg: str = "", err: str = "", session: SessionRecord = Depends(READ), db: Session = Depends(get_db)) -> Response:
+    """Coming events first (the list volunteers need most); a month grid on request."""
     y, m = _month(year, month)
     month_events = events.month_events(db, y, m)
     by_day: dict[int, list[Event]] = {}
@@ -65,6 +66,9 @@ def calendar_page(request: Request, year: int | None = None, month: int | None =
         session, "events", year=y, month=m, month_name=pycalendar.month_name[m], weeks=weeks, by_day=by_day, today=date.today(), prev=(prev_y, prev_m), nxt=(next_y, next_m),
         month_events=[e for evs in by_day.values() for e in evs], view=view, avail={e.id: events.availability(db, e) for e in month_events}, msg=msg, err=err,
     )
+    if view != "month":
+        coming = events.upcoming(db, limit=100, published_only=False)
+        ctx.update(view="coming", coming=coming, avail={e.id: events.availability(db, e) for e in coming})
     return templates.TemplateResponse(request, "events.html", ctx)
 
 

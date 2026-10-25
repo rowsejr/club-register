@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app import finance, training
+from app import finance, permissions, training
 from app.csvutil import RowError, london_to_utc, parse_minor
 from app.db import get_db
 from app.models import (
@@ -235,15 +235,16 @@ def course_cancel(course_id: int, reason: str = Form(""), confirm: str = Form(""
 @router.get("/app/training/{course_id:int}/roster.csv")
 def roster_csv(course_id: int, session: SessionRecord = READ, db: Session = Depends(get_db)) -> Response:
     course = _course(db, course_id)
+    private = permissions.allows(permissions.effective(db, session), "training.write")  # medical notes: only for those running courses
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["name", "age", "status", "email", "phone", "booked_by", "emergency_contact", "emergency_phone", "medical", "allergies"])
+    writer.writerow(["name", "age", "status", "email", "phone", "booked_by", "emergency_contact", "emergency_phone", *(["medical", "allergies"] if private else [])])
     for booking, contact in training.roster(db, course):
         profile = db.get(ParticipantProfile, contact.id) if contact else None
         payer = db.get(Contact, booking.booked_by_contact_id) if booking.booked_by_contact_id else None
         reach = payer or contact  # a parent is the person to ring about a child
         age = training.age_on(contact, course.starts_at.date()) if contact else None
-        values = (
+        values: list[object] = [
             contact.name if contact else "",
             age if age is not None else "",
             booking.status,
@@ -252,9 +253,9 @@ def roster_csv(course_id: int, session: SessionRecord = READ, db: Session = Depe
             payer.name if payer else "",
             profile.emergency_name if profile else "",
             profile.emergency_phone if profile else "",
-            profile.medical if profile else "",
-            profile.allergies if profile else "",
-        )
+        ]
+        if private:
+            values += [profile.medical if profile else "", profile.allergies if profile else ""]
         writer.writerow([_csv_cell(v) for v in values])
     return Response(buffer.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="roster-{course.id}.csv"'})
 

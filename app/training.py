@@ -193,10 +193,16 @@ def _invoice_for(db: Session, course: TrainingCourse, booking: TrainingBooking, 
     return finance.issue(db, invoice, actor)
 
 
-def _notify(db: Session, contact: Contact | None, subject: str, body: str, booking: TrainingBooking, actor: str) -> None:
+def _notify(db: Session, contact: Contact | None, subject: str, body: str, booking: TrainingBooking, actor: str, calendar: bool = False) -> None:
     if contact is None or not contact.email or contact.suppressed:
         return
-    mailer.send_email(db, to=contact.email, subject=subject, body=body, related_type="training_booking", related_id=booking.id, actor=actor, reply_to=finance.reply_to(db, "events"))
+    attachment = None
+    course = db.get(TrainingCourse, booking.course_id) if calendar else None
+    if course is not None:
+        from app import events
+
+        attachment = ("course.ics", events.ics_file(finance.get_setting(db, "club_name"), f"course-{course.id}@club-office", course.name, course.starts_at, course.ends_at, course.venue or "", course.description or ""), "text/calendar")
+    mailer.send_email(db, to=contact.email, subject=subject, body=body, related_type="training_booking", related_id=booking.id, actor=actor, reply_to=finance.reply_to(db, "events"), attachment=attachment)
 
 
 def _place(db: Session, course: TrainingCourse, booking: TrainingBooking, attendee: Contact, payer: Contact, actor: str) -> None:
@@ -243,7 +249,7 @@ def book(db: Session, course: TrainingCourse, attendee: Contact, *, booked_by: C
         db.flush()
         what = "confirmed" if booking.status == "booked" else "held"
         extra = "" if booking.status == "booked" else f"\n\nYour place is held until the invoice is paid (invoice {db.get(Invoice, booking.invoice_id).reference if booking.invoice_id else ''}). Places not paid for within {HOLD_DAYS} days are released."  # type: ignore[union-attr]
-        _notify(db, payer, f"{course.name}: your place is {what}", f"Hello {payer.name.split()[0]},\n\n{attendee.name} has a place on {course.name} on {_aware(course.starts_at).strftime('%d %B %Y')}.{extra}", booking, actor)
+        _notify(db, payer, f"{course.name}: your place is {what}", f"Hello {payer.name.split()[0]},\n\n{attendee.name} has a place on {course.name} on {_aware(course.starts_at).strftime('%d %B %Y')}.{extra}", booking, actor, calendar=booking.status == "booked")
     else:
         booking.status = "waitlist"
         db.flush()
@@ -339,7 +345,7 @@ def confirm_on_payment(db: Session, invoice: Invoice) -> None:
     attendee = db.get(Contact, booking.contact_id) if booking.contact_id else None
     payer = db.get(Contact, booking.booked_by_contact_id) if booking.booked_by_contact_id else attendee
     if course and attendee:
-        _notify(db, payer, f"{course.name}: your place is confirmed", f"Thank you: your payment has arrived and {attendee.name}'s place on {course.name} on {_aware(course.starts_at).strftime('%d %B %Y')} is confirmed.", booking, "system")
+        _notify(db, payer, f"{course.name}: your place is confirmed", f"Thank you: your payment has arrived and {attendee.name}'s place on {course.name} on {_aware(course.starts_at).strftime('%d %B %Y')} is confirmed.", booking, "system", calendar=True)
 
 
 finance.PAID_HOOKS.append(confirm_on_payment)

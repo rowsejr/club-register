@@ -7,6 +7,7 @@ public can buy tickets; each ticket type says who it is for. Refunds are credit 
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
@@ -238,9 +239,34 @@ def _first(contact: Contact) -> str:
     return contact.name.split()[0] if contact.name else "there"
 
 
-def _tell(db: Session, contact: Contact, subject: str, body: str, event: Event) -> None:
+def _tell(db: Session, contact: Contact, subject: str, body: str, event: Event, calendar: bool = False) -> None:
+    """Email someone about an event. With ``calendar``, the event comes as a file their phone or Outlook adds in one tap."""
     if contact.email and not contact.suppressed:
-        mailer.send_email(db, to=contact.email, subject=subject, body=body, related_type="event", related_id=event.id, actor="system", reply_to=finance.reply_to(db, "events"))
+        attachment = ("event.ics", event_ics(db, event), "text/calendar") if calendar else None
+        mailer.send_email(db, to=contact.email, subject=subject, body=body, related_type="event", related_id=event.id, actor="system", reply_to=finance.reply_to(db, "events"), attachment=attachment)
+
+
+def ics_file(club: str, uid: str, title: str, start: datetime, end: datetime | None, location: str = "", description: str = "", url: str = "") -> bytes:
+    """A one-event calendar file (.ics) for an email attachment."""
+    start = _aware(start) or _now()
+    finish = _aware(end) or start + timedelta(hours=2)
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", f"PRODID:-//{_ics_text(club)}//Club office//EN", "METHOD:PUBLISH", "BEGIN:VEVENT", f"UID:{uid}",
+             f"DTSTAMP:{_now().strftime('%Y%m%dT%H%M%SZ')}", f"DTSTART:{start.astimezone(UTC).strftime('%Y%m%dT%H%M%SZ')}", f"DTEND:{finish.astimezone(UTC).strftime('%Y%m%dT%H%M%SZ')}",
+             f"SUMMARY:{_ics_text(title)}"]
+    if location:
+        lines.append(f"LOCATION:{_ics_text(location)}")
+    if description:
+        lines.append(f"DESCRIPTION:{_ics_text(description)}")
+    if url:
+        lines.append(f"URL:{url}")
+    lines += ["END:VEVENT", "END:VCALENDAR"]
+    return ("\r\n".join(lines) + "\r\n").encode("utf-8")
+
+
+def event_ics(db: Session, event: Event) -> bytes:
+    base = os.getenv("CLUB_BASE_URL", "").rstrip("/")
+    return ics_file(finance.get_setting(db, "club_name"), f"event-{event.id}@club-office", event.title, event.start_at, event.end_at, event.location or "", event.description or "",
+                    f"{base}/whats-on/{event.id}" if base else "")
 
 
 def _invoice_for(db: Session, event: Event, ttype: TicketType, tickets: list[EventTicket], payer: Contact, actor: str) -> Invoice:
@@ -267,6 +293,7 @@ def _confirmation(db: Session, event: Event, buyer: Contact, tickets: list[Event
     lines = [f"Hello {_first(buyer)},", ""]
     if invoice is None:
         lines.append(f"You are booked: {len(tickets)} place{'s' if len(tickets) != 1 else ''} at {event.title}, {when}{', ' + event.location if event.location else ''}.")
+        lines += ["", "The attached file adds it to your calendar."]
     else:
         lines += [
             f"We are holding {len(tickets)} place{'s' if len(tickets) != 1 else ''} for you at {event.title}, {when}.",
@@ -279,7 +306,7 @@ def _confirmation(db: Session, event: Event, buyer: Contact, tickets: list[Event
         if payments.methods_for(db, invoice):
             lines += ["", f"Pay online: {payments.pay_link(invoice, db)}"]
     lines += ["", finance.get_setting(db, "club_name")]
-    _tell(db, buyer, f"{event.title}: your {'booking' if invoice is None else 'places are held'}", "\n".join(lines), event)
+    _tell(db, buyer, f"{event.title}: your {'booking' if invoice is None else 'places are held'}", "\n".join(lines), event, calendar=invoice is None)
 
 
 # --------------------------------------------------------------------------- paying, cancelling, waiting lists
@@ -296,7 +323,7 @@ def confirm_on_payment(db: Session, invoice: Invoice) -> None:
     buyer = db.get(Contact, held[0].contact_id)
     if event and buyer:
         when = event.start_at.strftime("%A %d %B %Y, %H:%M")
-        _tell(db, buyer, f"{event.title}: you are booked", f"Hello {_first(buyer)},\n\nThank you: your payment has arrived and your {len(held)} place{'s are' if len(held) != 1 else ' is'} confirmed for {event.title}, {when}.\n\n{finance.get_setting(db, 'club_name')}", event)
+        _tell(db, buyer, f"{event.title}: you are booked", f"Hello {_first(buyer)},\n\nThank you: your payment has arrived and your {len(held)} place{'s are' if len(held) != 1 else ' is'} confirmed for {event.title}, {when}. The attached file adds it to your calendar.\n\n{finance.get_setting(db, 'club_name')}", event, calendar=True)
     db.flush()
 
 

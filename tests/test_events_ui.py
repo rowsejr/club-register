@@ -114,21 +114,13 @@ def test_bad_event_forms_come_back_with_the_message(social) -> None:
     assert notnum.status_code == 422 and "not a whole number" in notnum.text
 
 
-def test_the_calendar_shows_the_month_and_the_list_view(social) -> None:
+def test_events_open_on_whats_coming_up_with_a_month_view_too(social) -> None:
     _create(social)
-    month = FUTURE.astimezone().month
-    page = social.get(f"/app/events?year={FUTURE.year}&month={FUTURE.month}")
-    assert (
-        page.status_code == 200
-        and "Club Dinner" in page.text
-        and "cal-event" in page.text
-        and "Calendar feed" in page.text
-    )
-    assert (
-        "Club Dinner"
-        in social.get(f"/app/events?year={FUTURE.year}&month={FUTURE.month}&view=list").text
-    )
-    assert social.get("/app/events?year=1&month=99").status_code == 200 and month
+    coming = social.get("/app/events")
+    assert coming.status_code == 200 and "Club Dinner" in coming.text and "Calendar feed" in coming.text and "cal-event" not in coming.text
+    month = social.get(f"/app/events?year={FUTURE.year}&month={FUTURE.month}&view=month")
+    assert "Club Dinner" in month.text and "cal-event" in month.text
+    assert social.get("/app/events?year=1&month=99&view=month").status_code == 200
 
 
 def test_the_public_pages_show_published_events_only_and_the_ical_feed(social) -> None:

@@ -8,9 +8,9 @@
 {% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
 {% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
 <div class="toolbar">
-  <a class="btn secondary" href="/app/events?year={{ prev[0] }}&amp;month={{ prev[1] }}&amp;view={{ view }}">←</a><strong style="font-size:1.1rem">{{ month_name }} {{ year }}</strong><a class="btn secondary" href="/app/events?year={{ nxt[0] }}&amp;month={{ nxt[1] }}&amp;view={{ view }}">→</a>
+  {% if view == "month" %}<a class="btn secondary" href="/app/events?year={{ prev[0] }}&amp;month={{ prev[1] }}&amp;view=month" aria-label="Previous month">←</a><strong style="font-size:1.1rem">{{ month_name }} {{ year }}</strong><a class="btn secondary" href="/app/events?year={{ nxt[0] }}&amp;month={{ nxt[1] }}&amp;view=month" aria-label="Next month">→</a>{% endif %}
   <span class="spacer"></span>
-  <a class="btn {{ '' if view == 'month' else 'secondary' }}" href="/app/events?year={{ year }}&amp;month={{ month }}&amp;view=month">Month</a><a class="btn {{ '' if view == 'list' else 'secondary' }}" href="/app/events?year={{ year }}&amp;month={{ month }}&amp;view=list">List</a>
+  <a class="btn {{ '' if view == 'coming' else 'secondary' }}" href="/app/events">Coming up</a><a class="btn {{ '' if view == 'month' else 'secondary' }}" href="/app/events?year={{ year }}&amp;month={{ month }}&amp;view=month">Month</a>
 </div>
 {% if view == "month" %}
 <div class="calendar">
@@ -23,9 +23,9 @@
 </div>
 {% else %}
 <div class="table-wrap"><table><thead><tr><th>When</th><th>Event</th><th>Where</th><th>Tickets</th><th>Status</th></tr></thead><tbody>
-{% for e in month_events|sort(attribute="start_at") %}{% set a = avail[e.id] %}<tr><td>{{ e.start_at|local }}</td><td><a href="/app/events/{{ e.id }}">{{ e.title }}</a>{% if e.event_type %} <span class="muted">{{ e.event_type }}</span>{% endif %}</td><td>{{ e.location }}</td>
+{% for e in coming %}{% set a = avail[e.id] %}<tr><td>{{ e.start_at|local }}</td><td><a href="/app/events/{{ e.id }}">{{ e.title }}</a>{% if e.event_type %} <span class="muted">{{ e.event_type }}</span>{% endif %}</td><td>{{ e.location }}</td>
 <td>{% if e.bookable %}{{ a.taken }}{% if a.limit is not none %} / {{ a.limit }}{% endif %} sold{% if a.waiting %}, {{ a.waiting }} waiting{% endif %}{% endif %}</td><td><span class="badge {{ 'paid' if e.published else 'draft' }}">{{ "published" if e.published else "draft" }}</span></td></tr>
-{% else %}<tr><td colspan="5" class="muted">Nothing this month.</td></tr>{% endfor %}
+{% else %}<tr><td colspan="5" class="muted">Nothing coming up.{% if perms|can("events.write") %} <a href="/app/events/new">Add an event</a>.{% endif %}</td></tr>{% endfor %}
 </tbody></table></div>
 {% endif %}
 {% endblock %}

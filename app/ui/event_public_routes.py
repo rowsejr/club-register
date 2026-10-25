@@ -46,6 +46,13 @@ def public_ical(request: Request, db: Session = Depends(get_db)) -> Response:
     return Response(events.ical(db, finance.get_setting(db, "club_name"), _base(request)), media_type="text/calendar", headers={"Content-Disposition": 'inline; filename="events.ics"'})
 
 
+@router.get("/whats-on/{event_id:int}.ics")
+def public_event_ics(event_id: int, db: Session = Depends(get_db)) -> Response:
+    """One event as a file that adds it to a phone or computer calendar."""
+    event = _published(db, event_id)
+    return Response(events.event_ics(db, event), media_type="text/calendar", headers={"Content-Disposition": f'attachment; filename="event-{event.id}.ics"'})
+
+
 @router.get("/whats-on/{event_id:int}", response_class=HTMLResponse)
 def public_event(event_id: int, request: Request, db: Session = Depends(get_db)) -> Response:
     event = _published(db, event_id)
