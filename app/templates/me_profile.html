@@ -9,7 +9,7 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <label>Name<input type="text" value="{{ contact.name }}" disabled></label>
   <label>Email (you sign in with this)<input type="text" value="{{ contact.email or '' }}" disabled></label>
-  <p class="muted">To change your name or sign-in email, use <a href="/app/me">Ask the club</a>.</p>
+  <p class="muted">To change your email, use the box at the bottom of this page. To change your name, use <a href="/app/me">Ask the club</a>.</p>
   <label>Phone<input type="tel" name="phone" value="{{ contact.phone or '' }}" autocomplete="tel"></label>
   <label>Address<textarea name="address" rows="3" autocomplete="street-address">{{ contact.address or '' }}</textarea></label>
   <div class="row">
@@ -31,4 +31,12 @@
   </fieldset>
   <div><button type="submit" class="big">Save</button></div>
 </form>
+{% if member %}
+<h2 id="email">Change my email address</h2>
+<form class="form card" method="post" action="/app/me/email">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>New email address<input type="email" name="new_email" required autocomplete="email"></label>
+  <div><button type="submit">Send me a link to confirm it</button> <span class="muted">Nothing changes until you open the link we send to the new address.</span></div>
+</form>
+{% endif %}
 {% endblock %}

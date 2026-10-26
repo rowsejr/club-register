@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app import finance, permissions, training
+from app import finance, people, permissions, training
 from app.csvutil import RowError, london_to_utc, parse_minor
 from app.db import get_db
 from app.models import (
@@ -283,7 +283,7 @@ def qualification_type_save(name: str = Form(""), authority: str = Form(""), val
 
 
 def _me(db: Session, session: SessionRecord) -> Contact | None:
-    return db.scalar(select(Contact).where(func.lower(Contact.email) == session.email.lower()).order_by(Contact.id))
+    return people.signed_in(db, session)[1]
 
 
 @router.get("/app/me/training", response_class=HTMLResponse)

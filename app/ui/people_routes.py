@@ -12,7 +12,17 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app import applications, audit, finance, membership, payments, permissions, privacy
+from app import (
+    applications,
+    audit,
+    finance,
+    membership,
+    payments,
+    people,
+    permissions,
+    privacy,
+    ratelimit,
+)
 from app.db import get_db
 from app.models import (
     Application,
@@ -261,9 +271,7 @@ def application_withdraw(application_id: int, session: SessionRecord = Depends(u
 
 
 def _me(db: Session, session: SessionRecord) -> tuple[Member | None, Contact | None]:
-    member = db.scalar(select(Member).where(func.lower(Member.email) == session.email.lower()).order_by(Member.id))
-    contact = db.scalar(select(Contact).where(Contact.member_id == member.id)) if member else db.scalar(select(Contact).where(func.lower(Contact.email) == session.email.lower()))
-    return member, contact
+    return people.signed_in(db, session)
 
 
 def _own_invoice(db: Session, session: SessionRecord, invoice_id: int) -> Invoice:
@@ -363,6 +371,41 @@ def me_profile_save(
     _audit(db, session, "member.self_edit", "contact", contact.id, changes=audit.changes(before, audit.snapshot(contact, audit.CONTACT_FIELDS)))
     db.commit()
     return _go("/app/me/profile", msg="Saved")
+
+
+@router.post("/app/me/email")
+def me_email_change(new_email: str = Form(""), session: SessionRecord = ANY_SESSION, db: Session = Depends(get_db)) -> Response:
+    member, contact = _me(db, session)
+    if member is None:
+        raise UiError(404, "No membership is linked to this sign-in")
+    if not ratelimit.allow(db, f"email-change:{member.id}", 5, 3600):
+        db.commit()
+        return _go("/app/me/profile", err="Please wait an hour before asking again")
+    try:
+        people.request_email_change(db, member, contact, new_email, session.email)
+    except people.EmailChangeError as exc:
+        db.rollback()
+        return _go("/app/me/profile", err=str(exc))
+    db.commit()
+    return _go("/app/me/profile", msg=f"We have emailed a link to {new_email.strip().lower()}. Your address changes when you open it.")
+
+
+@router.get("/me/email/{token}", response_class=HTMLResponse)
+def me_email_confirm_page(token: str, request: Request, db: Session = Depends(get_db)) -> Response:
+    """Opening the link only shows a button: some email programs open links to scan them, which must not change anything."""
+    change = people.pending_email_change(db, token)
+    return templates.TemplateResponse(request, "email_change.html", {"user": None, "nav": "", "change": change, "token": token, "done": None, "error": ""})
+
+
+@router.post("/me/email/{token}", response_class=HTMLResponse)
+def me_email_confirm(token: str, request: Request, db: Session = Depends(get_db)) -> Response:
+    try:
+        _member, new_email = people.confirm_email_change(db, token)
+    except people.EmailChangeError as exc:
+        db.rollback()
+        return templates.TemplateResponse(request, "email_change.html", {"user": None, "nav": "", "change": None, "token": token, "done": None, "error": str(exc)}, status_code=400)
+    db.commit()
+    return templates.TemplateResponse(request, "email_change.html", {"user": None, "nav": "", "change": None, "token": token, "done": new_email, "error": ""})
 
 
 @router.get("/app/me/export.json")

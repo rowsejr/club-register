@@ -48,6 +48,7 @@ Install the scan as a pre-commit hook with `git config core.hooksPath tools/hook
 - [docs/OPERATIONS.md](docs/OPERATIONS.md): settings, backups, monitoring, closing a year
 - [docs/EMAIL-JOBS-PAYMENTS.md](docs/EMAIL-JOBS-PAYMENTS.md): email from the club's address, scheduled jobs, Stripe card and Direct Debit
 - [docs/WEBSITE.md](docs/WEBSITE.md): how the club website and the office work together
+- [INTEGRATION-CHANGES.md](INTEGRATION-CHANGES.md): the agreed feed shapes and settings between the office, the website and the Sheets
 - [docs/SQLITE-DECISION.md](docs/SQLITE-DECISION.md): why one SQLite file
 
 [sheet/](sheet/README.md) is a short Google Apps Script that keeps a read-only copy of key lists (who owes, payments,

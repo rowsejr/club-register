@@ -1,0 +1,4 @@
+# For cPanel's "Setup Python App": run "pip install -r requirements-cpanel.txt" from the project folder.
+# See deploy/cpanel/passenger_wsgi.py.
+-e .
+a2wsgi>=1.10

@@ -56,9 +56,9 @@
     <button type="submit" class="secondary">Link</button><span class="muted">(the number is in the address of their page)</span></form>{% endif %}
 </div>
 
-<h2>Boats and spaces</h2>
-<div class="table-wrap"><table><thead><tr><th>Boat</th><th>Class</th><th>Sail no.</th><th>Space</th></tr></thead><tbody>
-{% for b, space in p.boats %}<tr><td><a href="/app/boats/{{ b.id }}">{{ b.name }}</a></td><td>{{ b.boat_class }}</td><td>{{ b.sail_number }}</td><td>{{ space.name if space else "none" }}</td></tr>{% else %}<tr><td colspan="4" class="muted">No boats.</td></tr>{% endfor %}
+<h2>Boats</h2>
+<div class="table-wrap"><table><thead><tr><th>Boat</th><th>Class</th><th>Sail no.</th>{% if berths_on() %}<th>Space</th>{% endif %}</tr></thead><tbody>
+{% for b, space in p.boats %}<tr><td><a href="/app/boats/{{ b.id }}">{{ b.name }}</a></td><td>{{ b.boat_class }}</td><td>{{ b.sail_number }}</td>{% if berths_on() %}<td>{{ space.name if space else "none" }}</td>{% endif %}</tr>{% else %}<tr><td colspan="4" class="muted">No boats.</td></tr>{% endfor %}
 </tbody></table></div>
 
 <h2>Training</h2>

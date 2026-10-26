@@ -90,10 +90,11 @@ def purge_sessions(db: Session) -> None:
         db.execute(delete(model).where(model.expires_at < cutoff), execution_options={"synchronize_session": False})
 
 
-def start_session(db: Session, email: str, role: Role) -> str:
-    """Sign someone in: returns the cookie value. Only the hash is stored."""
+def start_session(db: Session, email: str, role: Role, member_id: int | None = None) -> str:
+    """Sign someone in: returns the cookie value. Only the hash is stored. ``member_id`` picks one member of a family
+    that shares an email address; without it the member holding that address is the one signed in."""
     session_token, session_hash = issue_token()
-    db.add(SessionRecord(token_hash=session_hash, email=email.lower(), role=role, expires_at=expiry_after(SESSION_HOURS * 60)))
+    db.add(SessionRecord(token_hash=session_hash, email=email.lower(), role=role, expires_at=expiry_after(SESSION_HOURS * 60), member_id=member_id))
     purge_sessions(db)
     return session_token
 

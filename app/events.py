@@ -57,10 +57,26 @@ def _audit(db: Session, actor: str, action: str, target_id, **details) -> None:
 # --------------------------------------------------------------------------- events and ticket types
 
 
+# The kinds of event, as the website filters them. Courses are not events: they have their own feed.
+EVENT_KINDS = {"social": "Social", "racing": "Racing", "training": "Training", "meeting": "Meeting", "open_day": "Open day", "other": "Other"}
+_KIND_WORDS = {"open meeting": "meeting", "agm": "meeting", "egm": "meeting", "race": "racing", "regatta": "racing", "party": "social", "dinner": "social", "supper": "social"}
+
+
+def event_kind(value: str | None) -> str:
+    """One of EVENT_KINDS for whatever was typed: older events had a free-text kind."""
+    text = " ".join((value or "").lower().replace("_", " ").split())
+    if not text:
+        return "other"
+    for key, label in EVENT_KINDS.items():
+        if text in {key.replace("_", " "), label.lower()}:
+            return key
+    return next((kind for word, kind in _KIND_WORDS.items() if word in text), "other")
+
+
 def save_event(
     db: Session, event_id: int | None, *, title: str, start_at: datetime, end_at: datetime | None = None, location: str = "", event_type: str = "", description: str = "",
     bookable: bool = False, tickets_limit: int | None = None, waiting_limit: int | None = None, published: bool = False, sales_close_at: datetime | None = None,
-    nominal_code: str = "", group_name: str = "", notes: str = "",
+    nominal_code: str = "", group_name: str = "", notes: str = "", website_show: bool = True,
 ) -> Event:
     title = " ".join(title.split())
     if not title:
@@ -82,7 +98,8 @@ def save_event(
         if tickets_limit < taken:
             raise EventError(f"{taken} places are already taken, so the limit cannot be {tickets_limit}")
     event.title, event.start_at, event.end_at, event.location = title, start_at, end_at, location.strip()
-    event.event_type, event.description, event.bookable, event.published = event_type.strip() or None, description.strip() or None, bookable, published
+    event.event_type, event.description, event.bookable, event.published = event_kind(event_type), description.strip() or None, bookable, published
+    event.website_show = website_show
     event.tickets_limit, event.waiting_limit, event.sales_close_at = tickets_limit, waiting_limit, sales_close_at
     event.nominal_code, event.group_name, event.notes = nominal_code or None, group_name.strip() or None, notes.strip() or event.notes or ""
     db.flush()

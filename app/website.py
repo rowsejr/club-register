@@ -9,6 +9,9 @@ website's key (``website:<secret>`` in ``CLUB_FEED_KEYS``):
        GET /sso?email=<address>&ts=<unix seconds>&nonce=<random>&sig=<hex>
        sig = HMAC-SHA256(secret, "sso\\n<email in lower case>\\n<ts>\\n<nonce>")
 
+   For families who share one email address, add ``member_id=<the office's member id>`` and put it in the
+   signed text after the email (``sso, email, member_id, ts, nonce``), so the right person is signed in.
+
    The link works once, for two minutes. It only signs in ordinary members: anyone who can see other people's
    details (administrators, committee members, volunteers with a hat) signs in with the office's own emailed code,
    so a break-in on the website cannot open the club's records.
@@ -35,7 +38,7 @@ from sqlalchemy.orm import Session
 
 from app import applications, auth, feeds, office
 from app.feeds import FeedRefused
-from app.models import Contact, Role
+from app.models import Contact, Member, Role
 
 SSO_MAX_AGE = 120
 INCOMING_MAX_AGE = 300
@@ -53,25 +56,34 @@ def _secret() -> str:
     return secret
 
 
-def sso_signature(secret: str, email: str, ts: str, nonce: str) -> str:
-    return feeds.sign_parts(secret, "sso", email.strip().lower(), ts, nonce)
+def sso_signature(secret: str, email: str, ts: str, nonce: str, member_id: str = "") -> str:
+    parts = ["sso", email.strip().lower(), *([member_id] if member_id else []), ts, nonce]
+    return feeds.sign_parts(secret, *parts)
 
 
-def check_sso(db: Session, email: str, ts: str, nonce: str, sig: str, now: float | None = None) -> Role:
-    """Who this sign-in link is for, if it is genuine, fresh and unused. Raises FeedRefused or StaffMustSignIn."""
+def check_sso(db: Session, email: str, ts: str, nonce: str, sig: str, member_id: str = "", now: float | None = None) -> tuple[Role, int | None]:
+    """Who this sign-in link is for, if it is genuine, fresh and unused: (role, the member chosen, if any).
+    Raises FeedRefused, or StaffMustSignIn for anyone who can see other people's records."""
     secret = _secret()
-    email = (email or "").strip().lower()
+    email, member_id = (email or "").strip().lower(), (member_id or "").strip()
     if not feeds.fresh(ts, SSO_MAX_AGE, now):
         raise FeedRefused(401, "This sign-in link has run out. Go back to the website and press My membership again.")
-    if not email or not hmac.compare_digest(sso_signature(secret, email, ts, nonce), sig or ""):
+    if not email or (member_id and not member_id.isdigit()) or not hmac.compare_digest(sso_signature(secret, email, ts, nonce, member_id), sig or ""):
         raise FeedRefused(401, "This sign-in link is not valid.")
     feeds.remember(db, "sso:website", nonce, "sso")
-    role = auth.role_for_email(db, email)
+    chosen: Member | None = None
+    if member_id:
+        chosen = db.get(Member, int(member_id))
+        shares = chosen is not None and ((chosen.email or "").lower() == email or db.scalar(
+            select(Contact.id).where(Contact.member_id == chosen.id, func.lower(Contact.email) == email)) is not None)
+        if not shares:
+            raise FeedRefused(404, "The club office does not have that email address for that member. Ask the membership secretary to check it.")
+    role = auth.role_for_email(db, email) or (Role.MEMBER if chosen is not None else None)
     if role is None:
         raise FeedRefused(404, "The club office does not have that email address. If you are a member, ask the membership secretary to check it.")
-    if auth.is_staff(db, email):
+    if auth.is_staff(db, email) or (chosen is not None and chosen.email and auth.is_staff(db, chosen.email)):
         raise StaffMustSignIn(email)
-    return role
+    return role, chosen.id if chosen is not None else None
 
 
 def incoming_signature(secret: str, kind: str, client: str, ts: str, nonce: str, body: bytes) -> str:

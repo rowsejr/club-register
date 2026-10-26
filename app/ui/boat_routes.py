@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app import boats
+from app import boats, features, people
 from app.csvutil import RowError, parse_minor
 from app.db import get_db
 from app.models import (
@@ -101,7 +101,8 @@ def boats_list(request: Request, q: str = "", filter: str = "all", page: int = 1
         allocation = boats.current_allocation(db, boat.id, today)
         owner = boats.owner_contact(db, boat)
         items.append({"boat": boat, "owner": owner, "space": db.get(StorageResource, allocation.resource_id) if allocation else None, "insurance": boats.insurance_state(boat, today)})
-    return templates.TemplateResponse(request, "boats_list.html", _ctx(session, "boats", items=items, pager={"page": page, "pages": pages, "total": total}, q=q, filter=filter, filters=FILTERS, msg=msg, err=err, sub="boats"))
+    filters = FILTERS if features.berths_on() else [f for f in FILTERS if f[0] != "no_space"]
+    return templates.TemplateResponse(request, "boats_list.html", _ctx(session, "boats", items=items, pager={"page": page, "pages": pages, "total": total}, q=q, filter=filter, filters=filters, msg=msg, err=err, sub="boats"))
 
 
 @router.get("/app/boats.csv")
@@ -265,7 +266,7 @@ def boat_archive(boat_id: int, reason: str = Form(""), session: SessionRecord = 
     return _boat_action(db, boat_id, archive, "Archived")
 
 
-@router.post("/app/boats/{boat_id:int}/allocate")
+@router.post("/app/boats/{boat_id:int}/allocate", dependencies=[Depends(features.require_berths)])
 def boat_allocate(boat_id: int, resource_id: int = Form(...), start: str = Form(""), end: str = Form(""), fee: str = Form(""), session: SessionRecord = WRITE, db: Session = Depends(get_db)) -> Response:
     def do(boat: Boat) -> None:
         resource = db.get(StorageResource, resource_id)
@@ -278,7 +279,7 @@ def boat_allocate(boat_id: int, resource_id: int = Form(...), start: str = Form(
     return _boat_action(db, boat_id, do, "Space allocated")
 
 
-@router.post("/app/boats/{boat_id:int}/move")
+@router.post("/app/boats/{boat_id:int}/move", dependencies=[Depends(features.require_berths)])
 def boat_move(boat_id: int, resource_id: int = Form(...), on: str = Form(""), session: SessionRecord = WRITE, db: Session = Depends(get_db)) -> Response:
     def do(boat: Boat) -> None:
         resource = db.get(StorageResource, resource_id)
@@ -291,7 +292,7 @@ def boat_move(boat_id: int, resource_id: int = Form(...), on: str = Form(""), se
     return _boat_action(db, boat_id, do, "Moved")
 
 
-@router.post("/app/boats/{boat_id:int}/allocations/{allocation_id:int}/end")
+@router.post("/app/boats/{boat_id:int}/allocations/{allocation_id:int}/end", dependencies=[Depends(features.require_berths)])
 def allocation_end(boat_id: int, allocation_id: int, on: str = Form(""), reason: str = Form(""), session: SessionRecord = WRITE, db: Session = Depends(get_db)) -> Response:
     def do(boat: Boat) -> None:
         allocation = db.get(StorageAllocation, allocation_id)
@@ -305,7 +306,7 @@ def allocation_end(boat_id: int, allocation_id: int, on: str = Form(""), reason:
 # --------------------------------------------------------------------------- spaces, tariffs, billing
 
 
-@router.get("/app/storage", response_class=HTMLResponse)
+@router.get("/app/storage", response_class=HTMLResponse, dependencies=[Depends(features.require_berths)])
 def storage_page(request: Request, msg: str = "", err: str = "", session: SessionRecord = READ, db: Session = Depends(get_db)) -> Response:
     today = date.today()
     used = boats.occupancy(db, today)
@@ -321,7 +322,7 @@ def storage_page(request: Request, msg: str = "", err: str = "", session: Sessio
     return templates.TemplateResponse(request, "storage.html", _ctx(session, "boats", groups=groups, msg=msg, err=err, sub="storage"))
 
 
-@router.post("/app/storage/resources")
+@router.post("/app/storage/resources", dependencies=[Depends(features.require_berths)])
 def resource_create(name: str = Form(""), resource_type: str = Form("berth"), group: str = Form(""), capacity: int = Form(1), session: SessionRecord = WRITE, db: Session = Depends(get_db)) -> Response:
     try:
         boats.create_resource(db, name, resource_type, group, capacity)
@@ -332,7 +333,7 @@ def resource_create(name: str = Form(""), resource_type: str = Form("berth"), gr
     return _go("/app/storage", msg="Space added")
 
 
-@router.get("/app/storage/tariffs", response_class=HTMLResponse)
+@router.get("/app/storage/tariffs", response_class=HTMLResponse, dependencies=[Depends(features.require_berths)])
 def tariffs_page(request: Request, year: int | None = None, msg: str = "", err: str = "", session: SessionRecord = READ, db: Session = Depends(get_db)) -> Response:
     year = year or date.today().year + (1 if date.today().month >= 10 else 0)
     tariffs = db.scalars(select(StorageTariff).where(StorageTariff.season_year == year).order_by(StorageTariff.resource_type, StorageTariff.resource_group)).all()
@@ -340,7 +341,7 @@ def tariffs_page(request: Request, year: int | None = None, msg: str = "", err: 
     return templates.TemplateResponse(request, "tariffs.html", _ctx(session, "boats", year=year, tariffs=tariffs, combos=combos, msg=msg, err=err, sub="tariffs"))
 
 
-@router.post("/app/storage/tariffs/copy")
+@router.post("/app/storage/tariffs/copy", dependencies=[Depends(features.require_berths)])
 def tariffs_copy(from_year: int = Form(...), to_year: int = Form(...), rise: str = Form("0"), session: SessionRecord = BILL, db: Session = Depends(get_db)) -> Response:
     try:
         percent = float(rise.strip() or 0)
@@ -353,7 +354,7 @@ def tariffs_copy(from_year: int = Form(...), to_year: int = Form(...), rise: str
     return _go(f"/app/storage/tariffs?year={to_year}", msg=f"{done} fee(s) copied from {from_year}" + (f" with a {percent:g}% rise" if percent else ""))
 
 
-@router.post("/app/storage/tariffs")
+@router.post("/app/storage/tariffs", dependencies=[Depends(features.require_berths)])
 def tariff_save(year: int = Form(...), resource_type: str = Form(...), group: str = Form(""), fee: str = Form(""), nominal: str = Form("0102"), prorata: str = Form(""), session: SessionRecord = BILL, db: Session = Depends(get_db)) -> Response:
     try:
         boats.set_tariff(db, resource_type.strip(), group, year, _money(fee), nominal.strip() or None, prorata=bool(prorata))
@@ -365,7 +366,7 @@ def tariff_save(year: int = Form(...), resource_type: str = Form(...), group: st
     return _go(f"/app/storage/tariffs?year={year}", msg="Saved")
 
 
-@router.get("/app/storage/billing", response_class=HTMLResponse)
+@router.get("/app/storage/billing", response_class=HTMLResponse, dependencies=[Depends(features.require_berths)])
 def storage_billing(request: Request, year: int | None = None, msg: str = "", err: str = "", session: SessionRecord = READ, db: Session = Depends(get_db)) -> Response:
     year = year or date.today().year + (1 if date.today().month >= 10 else 0)
     rows = boats.billing_preview(db, year)
@@ -378,7 +379,7 @@ def storage_billing(request: Request, year: int | None = None, msg: str = "", er
     return templates.TemplateResponse(request, "storage_billing.html", _ctx(session, "boats", year=year, rows=rows, summary=summary, msg=msg, err=err, sub="billing"))
 
 
-@router.post("/app/storage/billing/{year:int}")
+@router.post("/app/storage/billing/{year:int}", dependencies=[Depends(features.require_berths)])
 async def storage_billing_run(year: int, request: Request, session: SessionRecord = BILL, db: Session = Depends(get_db)) -> Response:
     form = await request.form()
     selected = [int(str(v)) for v in form.getlist("allocation") if str(v).isdigit()]
@@ -418,7 +419,7 @@ async def insurance_reminders(request: Request, session: SessionRecord = WRITE, 
 
 
 def _my_contact(db: Session, session: SessionRecord) -> Contact | None:
-    return db.scalar(select(Contact).where(func.lower(Contact.email) == session.email.lower()).order_by(Contact.id))
+    return people.signed_in(db, session)[1]
 
 
 def _my_boats(db: Session, contact: Contact) -> list[Boat]:

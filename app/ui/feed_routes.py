@@ -22,6 +22,6 @@ def feed(name: str, request: Request, client: str = "", ts: str = "", nonce: str
     except feeds.FeedRefused as exc:
         db.commit()  # keep the rate-limit count
         return JSONResponse({"error": str(exc)}, status_code=exc.status)
-    body = feeds.build(db, name)
+    body = feeds.build(db, name, client=client)
     db.commit()
     return JSONResponse(body, headers={"Cache-Control": "no-store"})

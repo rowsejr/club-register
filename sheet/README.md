@@ -1,17 +1,28 @@
-# The committee's Sheet
+# The committee's Sheets
 
-A Google Sheet that holds a read-only copy of lists from the club office, refreshed every hour:
+Two Google Sheets that hold read-only copies of lists from the club office, refreshed every hour. Google cannot hide one
+tab from people who can open a spreadsheet, so money has a spreadsheet of its own. The same script, [`Copy.gs`](Copy.gs),
+runs both: you choose which copy it is when you set it up.
+
+**The committee copy** (share with the whole committee as Viewers):
+
+| Tab | What it shows |
+|---|---|
+| Members | Every current member: membership, status, until when, household and office roles. **No** emails, phones, addresses or money |
+| Boats | Boat, class, sail number, Portsmouth number, owner, club boat, status, insurance date |
+| Coming events | Dates, kind, prices, places left, the booking link, and whether the website shows it |
+| Courses | Dates, level, price, places left and the booking link |
+| Bookings | Places booked on coming events, and whether they are paid |
+| RYA census | People covered by a membership, by age band and gender |
+
+**The treasurer copy** (share only with the Treasurer):
 
 | Tab | What it shows |
 |---|---|
 | Who owes | Everyone who owes money, longest late first, with the last reminder and the latest note |
 | Payments | Money received in the last 13 months |
-| Members | Members with their number, membership, status and whether they have paid. **No** emails, phones or addresses |
-| Bookings | Places booked on coming events, and whether they are paid |
-| RYA census | People covered by a membership, by age band and gender |
 | Money summary | What is owed, what has come in this month and this year, how many members |
-| Coming events | Dates, prices, places left and the booking link |
-| Boats | Boat, class, sail number, Portsmouth number and owner |
+| Members and money | Members with their number, membership, status and whether they have paid |
 
 Nobody edits the Sheet. Every tab is protected, and anything typed in is replaced at the next refresh. To change
 anything, use the club office.
@@ -30,8 +41,9 @@ You need: the club office address, and the **sheet key**. The office administrat
 4. Go back to the spreadsheet and reload it. A **Club office** menu appears after a few seconds.
 5. Choose **Club office ▸ Set up**. Google asks for permission the first time: **Continue**, pick the club account,
    then **Advanced ▸ Go to (unsafe) ▸ Allow**. Google says "unsafe" only because this is the club's own script, not a
-   published app. Enter the office address and the sheet key when asked.
-6. The tabs fill in. Share the spreadsheet with the committee as **Viewers**.
+   published app. Enter the office address and the sheet key when asked, then type `committee` or `treasurer`.
+6. The tabs fill in. Share the committee copy with the committee as **Viewers**, and the treasurer copy only with the
+   Treasurer. For the second copy, repeat these steps in a new spreadsheet.
 
 If a refresh fails (the office is down, or the key was changed), Google emails the club account. **Club office ▸
 Refresh now** tries again straight away.
@@ -40,7 +52,7 @@ Refresh now** tries again straight away.
 
 - The key only lets the Sheet **read** these lists. It cannot change anything in the office.
 - Each request is signed and stamped with the time; the office refuses old, repeated or wrongly signed requests.
-- The members list has no contact details, so the Sheet can be shared with the whole committee.
+- The committee copy has no contact details and no money, so it can be shared with the whole committee.
 - To stop the copy, the office administrator removes the sheet key from the server.
 
 ## Tests

@@ -19,6 +19,7 @@ from app.models import FeeItem, MembershipType, NominalCode, StorageTariff, Trai
 STARTER_ITEMS = [
     ("Gate key deposit", "club", None, 1500, "each", "Refundable on return of the key"),
     ("Kayak / SUP storage", "storage", "0102", 3000, "per season", "Rack space for a kayak or paddle board"),
+    ("Boat park fee", "storage", "0102", 0, "per boat per season", "Keeping a boat in the club's boat park"),
     ("Donation", "club", "0104", 0, "each", "A gift to the club"),
     ("Open meeting entry", "club", "0108", 0, "each", ""),
     ("Club boat fee", "club", "0106", 0, "each", ""),

@@ -195,6 +195,7 @@ class Event(Base):
     url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     bookable: Mapped[bool | None] = mapped_column(Boolean, default=False, nullable=True)  # tickets can be bought
+    website_show: Mapped[bool | None] = mapped_column(Boolean, default=True, nullable=True)  # on the club website's public calendar
     sales_close_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     nominal_code: Mapped[str | None] = mapped_column(String(10), nullable=True)  # where ticket income is reported
 
@@ -303,6 +304,7 @@ class Boat(Base):
     usage: Mapped[str | None] = mapped_column(String(120), nullable=True)
     tags: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_club_boat: Mapped[bool | None] = mapped_column(Boolean, default=False, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
 
 class BoatCrewLink(Base):
@@ -476,6 +478,22 @@ class SessionRecord(Base):
     role: Mapped[Role] = mapped_column(Enum(Role), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    member_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # which member, when a family shares one email address
+
+
+class EmailChange(Base):
+    """A member asked to change their email address: it changes only when they click the link sent to the new one."""
+
+    __tablename__ = "email_changes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), nullable=False)
+    new_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    requested_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
 class AuditLog(Base):

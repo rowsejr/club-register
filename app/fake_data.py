@@ -196,13 +196,13 @@ def build(db: Session, seed: int = 7, today: date | None = None) -> dict[str, in
 
     # Events and courses.
     supper_day = today + timedelta(days=(5 - today.weekday()) % 7 + 28)
-    supper = events.save_event(db, None, title="Laying-up Supper", start_at=_at(supper_day, 19), end_at=_at(supper_day, 23), location="Clubhouse", event_type="Social",
+    supper = events.save_event(db, None, title="Laying-up Supper", start_at=_at(supper_day, 19), end_at=_at(supper_day, 23), location="Clubhouse", event_type="social",
                                bookable=True, tickets_limit=60, waiting_limit=10, published=True, description="Three courses and a raffle to close the season.")
     member_ticket = events.save_ticket_type(db, supper, None, name="Member", price_minor=1800, audience="members")
     events.save_ticket_type(db, supper, None, name="Guest", price_minor=2200, audience="public")
     events.save_ticket_type(db, supper, None, name="Child (under 12)", price_minor=0, audience="all", capacity=8)
     talk_day = today + timedelta(days=(3 - today.weekday()) % 7 + 14)
-    talk = events.save_event(db, None, title="Open Meeting: Winter Maintenance Talk", start_at=_at(talk_day, 19, 30), location="Clubhouse", event_type="Open meeting",
+    talk = events.save_event(db, None, title="Open Meeting: Winter Maintenance Talk", start_at=_at(talk_day, 19, 30), location="Clubhouse", event_type="meeting",
                              bookable=True, tickets_limit=40, published=True, description="Free and open to everyone. Please book so we know how many chairs to put out.")
     events.save_ticket_type(db, talk, None, name="Place", price_minor=0, audience="all")
     db.flush()

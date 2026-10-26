@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -60,3 +61,27 @@ hardening.install(app)
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "timestamp": now_utc().isoformat()}
+
+
+def _version() -> dict[str, str]:
+    """The commit this copy was built from. A deployment made with ``git archive`` has it written into app/version.txt;
+    a working copy asks git."""
+    stamp = (Path(__file__).parent / "version.txt").read_text(encoding="utf-8").strip()
+    if not stamp.startswith("$Format"):
+        commit, _, built = stamp.partition(" ")
+        return {"commit": commit, "built": built}
+    try:
+        out = subprocess.run(["git", "log", "-1", "--format=%h %cs"], capture_output=True, text=True, timeout=5, cwd=Path(__file__).parent, check=True).stdout.strip()  # noqa: S603, S607
+        commit, _, built = out.partition(" ")
+        return {"commit": commit or "unknown", "built": built}
+    except (OSError, subprocess.SubprocessError):
+        return {"commit": "unknown", "built": ""}
+
+
+VERSION = _version()
+
+
+@app.get("/version")
+def version() -> dict[str, str]:
+    """Which version is running. Public: it says nothing about members."""
+    return VERSION

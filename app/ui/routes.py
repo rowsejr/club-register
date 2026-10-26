@@ -25,6 +25,8 @@ from sqlalchemy.orm import Session
 from app import (
     applications,
     audit,
+    events,
+    features,
     finance,
     people,
     permissions,
@@ -65,6 +67,9 @@ def _template_context(request: Request) -> dict[str, Any]:
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"), context_processors=[_template_context])
 templates.env.filters["status_label"] = status_label
+templates.env.globals["berths_on"] = features.berths_on
+templates.env.globals["event_kinds"] = events.EVENT_KINDS
+templates.env.globals["event_kind"] = events.event_kind
 templates.env.globals["website_url"] = os.getenv("CLUB_WEBSITE_URL", "https://www.margateyachtclub.co.uk")
 
 

@@ -6,10 +6,10 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import berths, boats
+from app import berths, boats, features, people
 from app.db import get_db
 from app.models import (
     Boat,
@@ -22,7 +22,7 @@ from app.models import (
 from app.ui.boat_routes import ANY, READ, WRITE, _go
 from app.ui.routes import UiError, _audit, _ctx, templates
 
-router = APIRouter(include_in_schema=False)
+router = APIRouter(include_in_schema=False, dependencies=[Depends(features.require_berths)])
 
 
 def _season_year() -> int:
@@ -125,7 +125,7 @@ def waiting_offer(request_id: int, resource_id: int = Form(...), boat_id: int = 
 
 
 def _my_contact(db: Session, session: SessionRecord) -> Contact | None:
-    return db.scalar(select(Contact).where(func.lower(Contact.email) == session.email.lower()).order_by(Contact.id))
+    return people.signed_in(db, session)[1]
 
 
 @router.post("/app/me/boats/{boat_id:int}/space/{action}")

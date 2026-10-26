@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Boat reports{% endblock %}
 {% block content %}
-<h1>Boats and berths</h1>
+<h1>Boats</h1>
 {% include "_boats_nav.html" %}
 <h2>Insurance to chase</h2>
 <form method="post" action="/app/boats/reports/insurance-reminders">
@@ -15,8 +15,10 @@
   </tbody></table></div>
   {% if insurance and perms|can("boats.write") %}<p><button type="submit">Email the ticked owners</button> <span class="muted">Owners reminded in the last 14 days are skipped.</span></p>{% endif %}
 </form>
+{% if berths_on() %}
 <h2>Boats with no space</h2>
 <div class="table-wrap"><table><tbody>{% for b in no_space %}<tr><td><a href="/app/boats/{{ b.id }}">{{ b.name }}</a></td><td>{{ b.sail_number }}</td><td>{{ b.boat_class }}</td></tr>{% else %}<tr><td class="muted">Every boat has a space.</td></tr>{% endfor %}</tbody></table></div>
 <h2>Spaces ending in the next 90 days</h2>
 <div class="table-wrap"><table><thead><tr><th>Boat</th><th>Space</th><th>Ends</th></tr></thead><tbody>{% for a, b, r in ending %}<tr><td>{% if b %}<a href="/app/boats/{{ b.id }}">{{ b.name }}</a>{% endif %}</td><td>{{ r.name if r else "" }}</td><td>{{ a.end_date|dmy }}</td></tr>{% else %}<tr><td colspan="3" class="muted">Nothing is ending soon.</td></tr>{% endfor %}</tbody></table></div>
+{% endif %}
 {% endblock %}

@@ -48,9 +48,15 @@ sig = HMAC(secret, "<name>\nwebsite\n<ts>\n<nonce>")          (refused after 5 m
 
 | Feed | Columns |
 |---|---|
+| `siteMembers` | Member id, Name, Email, Mobile, Membership, Status, Until, Household, Hats, Updated. Every current member, keyed by the office's member id |
 | `directory` | Name, Membership, Email, Phone. **Only members who agreed** to be in the members' directory |
-| `boats` | Id, Name, Class, Sail number, Portsmouth number, Owner |
-| `events` | Id, Title, Starts, Ends, Where, Kind, Member price (£), Visitor price (£), Places left, Book at |
+| `boats` | Id, Name, Class, Sail number, Portsmouth number, Owner, Boat id, Owner member id, Club boat, Status, Insurance until, Updated |
+| `events` | Id, Title, Starts, Ends, Where, Kind, Member price (£), Visitor price (£), Places left, Book at, Website show |
+| `courses` | Course id, Title, Starts, Ends, Where, Level, Price (£), Places left, Minimum age, Book at |
+
+The exact meaning of each column, and the values `Status`, `Kind` and `Hats` can take, are in
+[INTEGRATION-CHANGES.md](../INTEGRATION-CHANGES.md) section 2: that file is the contract between the two sides.
+`GET /version` says which commit of the office is running.
 
 Each answer is `{"feed", "title", "generated_at", "columns": [...], "rows": [[...], ...]}`. Times are ISO 8601 with the
 UTC offset. "Book at" is the office's booking page for that event, empty when tickets are not on sale.
@@ -84,18 +90,24 @@ The website already knows who is signed in. When a member presses **My membershi
 it straight away:
 
 ```
-GET https://office.margateyachtclub.co.uk/sso?email=<email>&ts=<ts>&nonce=<nonce>&sig=<sig>
-sig = HMAC(secret, "sso\n<email, trimmed and in lower case>\n<ts>\n<nonce>")     (works once, for 2 minutes)
+GET https://office.margateyachtclub.co.uk/sso?email=<email>&ts=<ts>&nonce=<nonce>&sig=<sig>[&member_id=<id>][&next=/app/...]
+sig = HMAC(secret, "sso\n<email, trimmed and in lower case>\n<ts>\n<nonce>")                (works once, for 2 minutes)
+sig = HMAC(secret, "sso\n<email>\n<member_id>\n<ts>\n<nonce>")                             (with member_id)
 ```
 
+Families often share one email address. Send `member_id` (the `Member id` from `siteMembers`) so the right person is
+signed in; the office checks that member holds or shares that address. `next` can send them to a particular page, such
+as `/app/me/profile` for "Edit my details"; it must start with `/app`.
+
 ```php
-function club_office_link(string $email): string {
+function club_office_link(string $email, ?int $memberId = null, string $next = '/app'): string {
     $email = strtolower(trim($email));
     $ts = (string) time();
     $nonce = club_nonce();
-    $sig = club_sign(getenv('CLUB_WEBSITE_KEY'), ['sso', $email, $ts, $nonce]);
-    return 'https://office.margateyachtclub.co.uk/sso?' . http_build_query(
-        ['email' => $email, 'ts' => $ts, 'nonce' => $nonce, 'sig' => $sig]);
+    $parts = $memberId === null ? ['sso', $email, $ts, $nonce] : ['sso', $email, (string) $memberId, $ts, $nonce];
+    $query = ['email' => $email, 'ts' => $ts, 'nonce' => $nonce, 'sig' => club_sign(getenv('CLUB_WEBSITE_KEY'), $parts), 'next' => $next];
+    if ($memberId !== null) { $query['member_id'] = $memberId; }
+    return 'https://office.margateyachtclub.co.uk/sso?' . http_build_query($query);
 }
 // In the page handler for the button: header('Location: ' . club_office_link($user['email'])); exit;
 ```
@@ -109,6 +121,9 @@ What the office does:
   own sign-in page and gets a code by email. So even if the website were broken into, nobody could use it to open the
   club's records.
 - An address the office does not know gets a polite page explaining who to ask.
+
+Members change their own email address and mobile in the office (*My details*); the new address takes effect once they
+confirm it from the link the office emails to it, and appears in `siteMembers` straight away.
 
 ## 4. Forms on the website that go to the office
 

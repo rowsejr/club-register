@@ -2,3 +2,4 @@
 *.png binary
 *.jpg binary
 *.pdf binary
+app/version.txt export-subst

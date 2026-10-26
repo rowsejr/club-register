@@ -6,7 +6,7 @@
   <span class="spacer"></span>{% if event.published %}<a class="btn secondary" href="/whats-on/{{ event.id }}" target="_blank" rel="noopener">View public page</a>{% endif %}</div>
 {% if msg %}<div class="alert ok" role="status">{{ msg }}</div>{% endif %}
 {% if err %}<div class="alert error" role="alert">{{ err }}</div>{% endif %}
-<p>{{ event.start_at|local }}{% if event.end_at %} to {{ event.end_at|local("%H:%M") }}{% endif %}{% if event.location %} · {{ event.location }}{% endif %}{% if event.event_type %} · {{ event.event_type }}{% endif %}</p>
+<p>{{ event.start_at|local }}{% if event.end_at %} to {{ event.end_at|local("%H:%M") }}{% endif %}{% if event.location %} · {{ event.location }}{% endif %}{% if event.event_type %} · {{ event_kinds.get(event.event_type, event.event_type) }}{% endif %}</p>
 {% if event.description %}<p style="white-space:pre-wrap">{{ event.description }}</p>{% endif %}
 
 <h2>Tickets</h2>

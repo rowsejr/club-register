@@ -11,10 +11,10 @@
   {% for v, l in filters %}<a class="btn {{ '' if filter == v else 'secondary' }}" href="/app/boats?filter={{ v }}">{{ l }}</a>{% endfor %}
 </div>
 <div class="table-wrap"><table>
-<thead><tr><th>Name</th><th>Sail no.</th><th>Class</th><th>Owner</th><th>Space now</th><th>Insurance</th></tr></thead><tbody>
+<thead><tr><th>Name</th><th>Sail no.</th><th>Class</th><th>Owner</th>{% if berths_on() %}<th>Space now</th>{% endif %}<th>Insurance</th></tr></thead><tbody>
 {% for it in items %}{% set b = it.boat %}<tr>
   <td><a href="/app/boats/{{ b.id }}">{{ b.name }}</a>{% if b.is_club_boat %} <span class="badge">club</span>{% endif %}</td><td>{{ b.sail_number }}</td><td>{{ b.boat_class }}</td>
-  <td>{% if it.owner %}<a href="/app/contacts/{{ it.owner.id }}">{{ it.owner.name }}</a>{% endif %}</td><td>{{ it.space.name if it.space else "" }}</td>
+  <td>{% if it.owner %}<a href="/app/contacts/{{ it.owner.id }}">{{ it.owner.name }}</a>{% endif %}</td>{% if berths_on() %}<td>{{ it.space.name if it.space else "" }}</td>{% endif %}
   <td><span class="badge {{ 'paid' if it.insurance == 'ok' else ('fail' if it.insurance in ('expired', 'unknown') else 'draft') }}">{{ it.insurance }}</span></td></tr>
 {% else %}<tr><td colspan="6" class="muted">No boats match.</td></tr>{% endfor %}
 </tbody></table></div>

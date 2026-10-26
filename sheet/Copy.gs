@@ -1,8 +1,12 @@
 /**
- * The committee's read-only copy of the club office.
+ * A read-only copy of the club office, in one of two spreadsheets:
  *
- * This spreadsheet holds copies of lists from the club office: who owes money, payments, members (with no contact
- * details), bookings, the RYA census, a money summary, coming events and boats. It refreshes itself every hour.
+ * - the **committee** copy: members (no email, mobile or money), boats, coming events, courses, bookings and the
+ *   RYA census, shared with the whole committee;
+ * - the **treasurer** copy: who owes money, payments, the money summary and members with what they owe, shared only
+ *   with the Treasurer. (Google cannot hide one tab from people who can open a spreadsheet, so money has its own file.)
+ *
+ * Each refreshes itself every hour.
  *
  * Nobody types into it. The tabs are protected, and anything changed here is overwritten at the next refresh.
  * To change anything, use the club office.
@@ -11,16 +15,22 @@
  * (CLUB_FEED_KEYS on the office). The office refuses old, repeated or wrongly signed requests.
  */
 
-var FEEDS = [
-  ['chase', 'Who owes'],
-  ['payments', 'Payments'],
-  ['members', 'Members'],
-  ['bookings', 'Bookings'],
-  ['census', 'RYA census'],
-  ['money', 'Money summary'],
-  ['events', 'Coming events'],
-  ['boats', 'Boats']
-];
+var COPIES = {
+  committee: [
+    ['siteMembers', 'Members'],
+    ['boats', 'Boats'],
+    ['events', 'Coming events'],
+    ['courses', 'Courses'],
+    ['bookings', 'Bookings'],
+    ['census', 'RYA census']
+  ],
+  treasurer: [
+    ['chase', 'Who owes'],
+    ['payments', 'Payments'],
+    ['money', 'Money summary'],
+    ['members', 'Members and money']
+  ]
+};
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Club office')
@@ -37,9 +47,14 @@ function setUp() {
   if (address.getSelectedButton() !== ui.Button.OK) return;
   var key = ui.prompt('Sheet key', 'The "sheet" key the office administrator gave you.', ui.ButtonSet.OK_CANCEL);
   if (key.getSelectedButton() !== ui.Button.OK) return;
+  var copy = ui.prompt('Which copy is this?', 'Type committee (shared with the committee, no money) or treasurer (only for the Treasurer).', ui.ButtonSet.OK_CANCEL);
+  if (copy.getSelectedButton() !== ui.Button.OK) return;
+  var which = copy.getResponseText().trim().toLowerCase();
+  if (!COPIES[which]) { ui.alert('Please type committee or treasurer.'); return; }
   PropertiesService.getScriptProperties().setProperties({
     OFFICE_URL: address.getResponseText().trim().replace(/\/+$/, ''),
-    FEED_KEY: key.getResponseText().trim()
+    FEED_KEY: key.getResponseText().trim(),
+    COPY: which
   });
   ScriptApp.getProjectTriggers().forEach(function (trigger) {
     if (trigger.getHandlerFunction() === 'refreshAll') ScriptApp.deleteTrigger(trigger);
@@ -104,10 +119,15 @@ function protect(sheet) {
   if (protection.canDomainEdit()) protection.setDomainEdit(false);
 }
 
+/** The tabs this spreadsheet holds: the committee copy unless set up as the Treasurer's. */
+function feedsFor(copy) {
+  return COPIES[copy] || COPIES.committee;
+}
+
 function refreshAll() {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   var problems = [];
-  FEEDS.forEach(function (pair) {
+  feedsFor(PropertiesService.getScriptProperties().getProperty('COPY')).forEach(function (pair) {
     try {
       writeTab(spreadsheet, pair[1], fetchFeed(pair[0]));
     } catch (e) {
@@ -118,5 +138,5 @@ function refreshAll() {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { FEEDS: FEEDS, toHex: toHex, signature: signature, feedUrl: feedUrl, writeTab: writeTab, refreshAll: refreshAll };
+  module.exports = { COPIES: COPIES, feedsFor: feedsFor, toHex: toHex, signature: signature, feedUrl: feedUrl, writeTab: writeTab, refreshAll: refreshAll };
 }

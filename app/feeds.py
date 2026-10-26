@@ -27,16 +27,20 @@ from typing import Any
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app import events, finance, office
+from app import events, finance, office, training
 from app.models import (
     Boat,
     BoatDesign,
     Contact,
+    ContactRelation,
     Event,
     EventTicket,
     Invoice,
     Member,
+    Role,
     TicketType,
+    TrainingCourse,
+    UserRole,
     WebhookEvent,
 )
 
@@ -51,9 +55,17 @@ FEEDS: dict[str, tuple[str, tuple[str, ...]]] = {
     "census": ("RYA census counts by age band and gender", ("sheet",)),
     "money": ("Money summary", ("sheet",)),
     "events": ("Coming events, with booking links", ("sheet", "website")),
+    "courses": ("Courses open for booking, with booking links", ("sheet", "website")),
     "boats": ("Boats with their owner, class, sail number and Portsmouth Yardstick", ("sheet", "website")),
     "directory": ("Members who agreed to be in the members' directory", ("website",)),
+    "siteMembers": ("Every current member, keyed by the office's member id (the Sheet gets it without email and mobile)", ("website", "sheet")),
 }
+
+# Columns a tool does not get even though it may read the feed.
+WITHHELD: dict[tuple[str, str], set[str]] = {("siteMembers", "sheet"): {"Email", "Mobile"}}
+
+# How hats are named in feeds. The base roles Admin and Committee come first.
+HAT_NAMES = {"treasurer": "Treasurer", "secretary": "Secretary", "bosun": "Bosun", "social": "Social", "training": "Training"}
 
 
 class FeedRefused(Exception):
@@ -180,23 +192,106 @@ def _events(db: Session, today: date, base_url: str) -> tuple[list[str], list[li
         on_sale, _why = events.sales_state(event)
         start, end = events._aware(event.start_at) or event.start_at, events._aware(event.end_at)
         rows.append([event.id, event.title, start.isoformat(), end.isoformat() if end else "",
-                     event.location or "", event.event_type or "", "" if "members" not in prices and "all" not in prices else _pounds(prices.get("members", prices.get("all"))),
+                     event.location or "", events.event_kind(event.event_type), "" if "members" not in prices and "all" not in prices else _pounds(prices.get("members", prices.get("all"))),
                      "" if "public" not in prices and "all" not in prices else _pounds(prices.get("public", prices.get("all"))),
-                     "" if free is None else free, f"{base_url}/whats-on/{event.id}" if on_sale else ""])
-    return ["Id", "Title", "Starts", "Ends", "Where", "Kind", "Member price (£)", "Visitor price (£)", "Places left", "Book at"], rows
+                     "" if free is None else free, f"{base_url}/whats-on/{event.id}" if on_sale else "", "no" if event.website_show is False else "yes"])
+    return ["Id", "Title", "Starts", "Ends", "Where", "Kind", "Member price (£)", "Visitor price (£)", "Places left", "Book at", "Website show"], rows
+
+
+def _when(value: datetime | None) -> str:
+    """A time with its UTC offset. SQLite hands back times without one; they were stored in UTC."""
+    if value is None:
+        return ""
+    return (value if value.tzinfo else value.replace(tzinfo=UTC)).isoformat(timespec="seconds")
 
 
 def _boats(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
+    """Every boat, one row per boat, active or not (see Status). No spaces or berths: those stay in the office."""
     designs = {d.id: d for d in db.scalars(select(BoatDesign))}
     rows = []
-    for boat in db.scalars(select(Boat).where(Boat.status == "active").order_by(Boat.name)):
+    for boat in db.scalars(select(Boat).order_by(Boat.name, Boat.id)):
         owner = db.get(Contact, boat.owner_contact_id) if boat.owner_contact_id else None
         if owner is None and boat.owner_member_id:
             owner = db.scalar(select(Contact).where(Contact.member_id == boat.owner_member_id))
         design = designs.get(boat.design_id or 0)
         number = boat.portsmouth_number or (design.portsmouth_rating if design else None)
-        rows.append([boat.id, boat.name, boat.boat_class or (design.name if design else ""), boat.sail_number or "", number or "", owner.name if owner else ""])
-    return ["Id", "Name", "Class", "Sail number", "Portsmouth number", "Owner"], rows
+        club = bool(boat.is_club_boat)
+        owner_member = None if club else (boat.owner_member_id or (owner.member_id if owner else None))
+        rows.append([boat.id, boat.name, boat.boat_class or (design.name if design else ""), boat.sail_number or "", number or "", owner.name if owner and not club else ("club" if club else ""),
+                     boat.id, owner_member or "", "yes" if club else "no", boat.status or "", _day(boat.insurance_expiry), _when(boat.updated_at)])
+    return ["Id", "Name", "Class", "Sail number", "Portsmouth number", "Owner", "Boat id", "Owner member id", "Club boat", "Status", "Insurance until", "Updated"], rows
+
+
+def _courses(db: Session, today: date, base_url: str) -> tuple[list[str], list[list[Any]]]:
+    rows = []
+    start = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
+    for course in db.scalars(select(TrainingCourse).where(TrainingCourse.starts_at >= start, TrainingCourse.status == "open").order_by(TrainingCourse.starts_at)):
+        _taken, free, _waiting = training.seats(db, course)
+        rows.append([course.id, course.name, _when(course.starts_at), _when(course.ends_at), course.venue or "", course.level or "", _pounds(course.price_minor),
+                     free, course.min_age or "", f"{base_url}/courses#course-{course.id}"])
+    return ["Course id", "Title", "Starts", "Ends", "Where", "Level", "Price (£)", "Places left", "Minimum age", "Book at"], rows
+
+
+def hats_label(role: UserRole | None) -> str:
+    """The office roles someone holds, by name: Admin or Committee first, then hats. Empty for an ordinary member."""
+    if role is None:
+        return ""
+    names = [role.role.value] if role.role in (Role.ADMIN, Role.COMMITTEE) else []
+    worn = {h.strip().lower() for h in (role.extra_roles or "").split(",")}
+    names += [label for key, label in HAT_NAMES.items() if key in worn]
+    return ", ".join(names)
+
+
+def _households(db: Session) -> dict[int, int]:
+    """Member id -> household id: the lowest member id among people linked as family or sharing an email address."""
+    parent: dict[tuple[str, int], tuple[str, int]] = {}
+
+    def find(node: tuple[str, int]) -> tuple[str, int]:
+        parent.setdefault(node, node)
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+        return node
+
+    def join(a: tuple[str, int], b: tuple[str, int]) -> None:
+        parent[find(a)] = find(b)
+
+    by_email: dict[str, tuple[str, int]] = {}
+    for member_id, email in db.execute(select(Member.id, Member.email)):
+        find(("m", member_id))
+        if email:
+            join(("m", member_id), by_email.setdefault(email.strip().lower(), ("m", member_id)))
+    for contact_id, linked_member, email in db.execute(select(Contact.id, Contact.member_id, Contact.email)):
+        if linked_member:
+            join(("c", contact_id), ("m", linked_member))
+        if email:
+            join(("c", contact_id), by_email.setdefault(email.strip().lower(), ("c", contact_id)))
+    for a, b in db.execute(select(ContactRelation.from_contact_id, ContactRelation.to_contact_id)):
+        join(("c", a), ("c", b))
+    lowest: dict[tuple[str, int], int] = {}
+    for node in list(parent):
+        if node[0] == "m":
+            root = find(node)
+            lowest[root] = min(lowest.get(root, node[1]), node[1])
+    return {node[1]: lowest[find(node)] for node in parent if node[0] == "m"}
+
+
+def _site_members(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
+    """Every current member: active, a membership that ended in the last 13 months, joined in that time, or a new
+    member waiting to pay. No bank, invoice, medical, consent, birth date or notes."""
+    since = today - timedelta(days=400)
+    roles = {r.email.lower(): r for r in db.scalars(select(UserRole))}
+    households = _households(db)
+    rows = []
+    query = select(Member).where((Member.active.is_(True)) | (Member.expiry_date >= since) | (Member.join_date >= since) | (Member.renewal_status == "pending"))
+    for member in db.scalars(query.order_by(Member.name, Member.id)):
+        contact = db.scalar(select(Contact).where(Contact.member_id == member.id).order_by(Contact.id))
+        email = member.email or (contact.email if contact else None) or ""
+        updated = max((t if t.tzinfo else t.replace(tzinfo=UTC) for t in (member.updated_at, contact.updated_at if contact else None) if t is not None), default=None)
+        rows.append([member.id, member.name, email, (contact.phone if contact else None) or "", member.membership_type or "",
+                     "active" if member.active else (member.renewal_status or "lapsed"), _day(member.expiry_date), households.get(member.id, member.id),
+                     hats_label(roles.get(email.lower())) if email else "", _when(updated)])
+    return ["Member id", "Name", "Email", "Mobile", "Membership", "Status", "Until", "Household", "Hats", "Updated"], rows
 
 
 def _directory(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
@@ -206,9 +301,19 @@ def _directory(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
     return ["Name", "Membership", "Email", "Phone"], rows
 
 
-def build(db: Session, name: str, today: date | None = None, base_url: str = "") -> dict[str, Any]:
+def build(db: Session, name: str, today: date | None = None, base_url: str = "", client: str = "") -> dict[str, Any]:
     today = today or date.today()
     base_url = (base_url or os.getenv("CLUB_BASE_URL", "")).rstrip("/")
-    makers = {"chase": _chase, "payments": _payments, "members": _members, "bookings": _bookings, "census": _census, "money": _money, "boats": _boats, "directory": _directory}
-    columns, rows = _events(db, today, base_url) if name == "events" else makers[name](db, today)
+    makers = {"chase": _chase, "payments": _payments, "members": _members, "bookings": _bookings, "census": _census, "money": _money, "boats": _boats, "directory": _directory,
+              "siteMembers": _site_members}
+    if name == "events":
+        columns, rows = _events(db, today, base_url)
+    elif name == "courses":
+        columns, rows = _courses(db, today, base_url)
+    else:
+        columns, rows = makers[name](db, today)
+    hidden = WITHHELD.get((name, client), set())
+    if hidden:
+        keep = [i for i, column in enumerate(columns) if column not in hidden]
+        columns, rows = [columns[i] for i in keep], [[row[i] for i in keep] for row in rows]
     return {"feed": name, "title": FEEDS[name][0], "generated_at": datetime.now(UTC).isoformat(timespec="seconds"), "columns": columns, "rows": rows}

@@ -97,7 +97,7 @@ def test_the_website_feeds_respect_peoples_choices(club) -> None:
     directory = web.get(_url("directory", client="website", secret=SITE)).json()
     assert directory["rows"] == [["Ann Sailor", "Single Adult Sailing", "ann@example.org", "07700 900123"]]  # only the member who agreed
     boats = web.get(_url("boats", client="website", secret=SITE)).json()
-    assert boats["rows"][0][1:] == ["Puffin", "Laser", "123456", 1100, "Ann Sailor"]
+    assert boats["rows"][0][1:6] == ["Puffin", "Laser", "123456", 1100, "Ann Sailor"]  # the first six columns never change
     coming = web.get(_url("events", client="website", secret=SITE)).json()
     row = dict(zip(coming["columns"], coming["rows"][0], strict=True))
     assert row["Title"] == "Laying-up Supper" and row["Member price (£)"] == 25.0 and row["Visitor price (£)"] == 30.0 and row["Places left"] == 40

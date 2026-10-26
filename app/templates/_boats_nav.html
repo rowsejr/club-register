@@ -1,5 +1,6 @@
 <nav class="subnav" aria-label="Boats">
-  {% for key, href, label in [("boats", "/app/boats", "Boats"), ("new", "/app/boats/new", "Add a boat"), ("storage", "/app/storage", "Spaces"), ("tariffs", "/app/storage/tariffs", "Storage fees"), ("season", "/app/storage/season", "Season"), ("waiting", "/app/storage/waiting", "Waiting list"), ("billing", "/app/storage/billing", "Storage billing"), ("reports", "/app/boats/reports", "Reports")] %}
+  {% set spaces = [("storage", "/app/storage", "Spaces"), ("tariffs", "/app/storage/tariffs", "Storage fees"), ("season", "/app/storage/season", "Season"), ("waiting", "/app/storage/waiting", "Waiting list"), ("billing", "/app/storage/billing", "Storage billing")] if berths_on() else [] %}
+  {% for key, href, label in [("boats", "/app/boats", "Boats"), ("new", "/app/boats/new", "Add a boat")] + spaces + [("reports", "/app/boats/reports", "Reports")] %}
   <a href="{{ href }}" class="{{ 'active' if sub == key }}">{{ label }}</a>
   {% endfor %}
 </nav>

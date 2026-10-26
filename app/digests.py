@@ -14,7 +14,7 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import applications, berths, boats, finance, mailer, people, season, training
+from app import applications, berths, boats, features, finance, mailer, people, season, training
 from app.models import BankEntry, Invoice, Member, PaymentTransaction, UserRole
 
 
@@ -79,10 +79,12 @@ def secretary(db: Session, today: date) -> Digest:
 
 
 def bosun(db: Session, today: date) -> Digest:
-    free = sum(g.free for g in berths.occupancy_by_group(db, today))
     digest = Digest("bosun", "Harbourmaster")
-    digest.lines = [
-        Line("boats with expired, expiring or unknown insurance", len(boats.insurance_problems(db, today)), "/app/boats/reports", True),
+    digest.lines = [Line("boats with expired, expiring or unknown insurance", len(boats.insurance_problems(db, today)), "/app/boats/reports", True)]
+    if not features.berths_on():
+        return digest
+    free = sum(g.free for g in berths.occupancy_by_group(db, today))
+    digest.lines += [
         Line("boats with no space", len(boats.boats_without_space(db, today)), "/app/boats?filter=no_space"),
         Line("spaces ending in the next 60 days", len(boats.allocations_ending(db, 60, today)), "/app/boats/reports"),
         Line("people on the waiting list", len(berths.waiting_list(db)), "/app/storage/waiting"),

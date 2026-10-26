@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ boat.name }}{% endblock %}
 {% block content %}
-<h1>Boats and berths</h1>
+<h1>Boats</h1>
 {% include "_boats_nav.html" %}
 <div class="toolbar"><h2 style="margin:0">{{ boat.name }} <span class="badge {{ 'paid' if insurance == 'ok' else ('fail' if insurance in ('expired', 'unknown') else 'draft') }}">insurance {{ insurance }}</span>{% if boat.status != "active" %} <span class="badge cancelled">{{ boat.status }}</span>{% endif %}</h2></div>
 <div class="cards" style="margin-bottom:1rem">
@@ -11,6 +11,7 @@
   <div class="card"><div class="label">Insurance expires</div>{{ boat.insurance_expiry|dmy or "—" }}</div>
 </div>
 
+{% if berths_on() %}
 <h2>Space</h2>
 <div class="table-wrap"><table><thead><tr><th>Space</th><th>From</th><th>To</th><th>Fee</th><th>Status</th><th></th></tr></thead><tbody>
 {% for a, r in allocations %}<tr><td>{{ r.name }}</td><td>{{ a.start_date|dmy }}</td><td>{{ a.end_date|dmy }}</td><td>{{ a.fee_minor|gbp if a.fee_minor is not none else "tariff" }}</td>
@@ -28,6 +29,7 @@
     <label>New space<select name="resource_id" required>{% for r in resources %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}</select></label>
     <label>On<input type="date" name="on" value="{{ today }}" required></label><button class="secondary" type="submit">Move</button></form>
 </div>
+{% endif %}
 {% endif %}
 
 <h2>Details</h2>

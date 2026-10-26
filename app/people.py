@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
+import os
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app import finance
 from app.models import (
+    AuditLog,
     Boat,
     Contact,
     ContactList,
     ContactRelation,
     ContactTag,
+    EmailChange,
     Invoice,
     ListMembership,
     Member,
@@ -25,10 +29,12 @@ from app.models import (
     PaymentTransaction,
     Qualification,
     SavedView,
+    SessionRecord,
     StorageAllocation,
     StorageResource,
     TrainingBooking,
     TrainingCourse,
+    UserRole,
 )
 
 
@@ -155,6 +161,94 @@ class Person360:
     household: Household
     age: int | None
     profile: ParticipantProfile | None
+
+
+def signed_in(db: Session, session: SessionRecord) -> tuple[Member | None, Contact | None]:
+    """The member and contact behind a sign-in. A sign-in from the website can name the member, for families who share
+    one email address; otherwise it is the member holding the address, or a contact with it."""
+    member = db.get(Member, session.member_id) if session.member_id else None
+    if member is None:
+        member = db.scalar(select(Member).where(func.lower(Member.email) == session.email.lower()).order_by(Member.id))
+    if member is not None:
+        contact = db.scalar(select(Contact).where(Contact.member_id == member.id).order_by(Contact.id))
+        return member, contact
+    return None, db.scalar(select(Contact).where(func.lower(Contact.email) == session.email.lower()).order_by(Contact.id))
+
+
+class EmailChangeError(ValueError):
+    """Something the member can put right, shown to them as it is."""
+
+
+EMAIL_CHANGE_HOURS = 24
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def request_email_change(db: Session, member: Member, contact: Contact | None, new_email: str, actor: str) -> str:
+    """Start changing a member's email address. Nothing changes until they click the link sent to the new address,
+    which proves it is theirs. Returns the link's token (only for tests and the sandbox)."""
+    from app import auth, mailer
+    from app.security import expiry_after, issue_token
+
+    new_email = (new_email or "").strip().lower()
+    old = (member.email or (contact.email if contact else "") or "").lower()
+    if not EMAIL_PATTERN.match(new_email) or len(new_email) > 255:
+        raise EmailChangeError("That does not look like an email address")
+    if new_email == old:
+        raise EmailChangeError("That is already your email address")
+    if auth.is_staff(db, actor) or (old and auth.is_staff(db, old)):
+        raise EmailChangeError("Your sign-in also opens volunteer pages, so an administrator changes your email. Please use Ask the club.")
+    taken = db.scalar(select(Member.id).where(func.lower(Member.email) == new_email, Member.id != member.id)) or db.scalar(select(UserRole.id).where(func.lower(UserRole.email) == new_email))
+    if taken:
+        raise EmailChangeError("Another member already uses that address. Please use Ask the club.")
+    token, token_hash = issue_token()
+    db.add(EmailChange(token_hash=token_hash, member_id=member.id, new_email=new_email, requested_by=actor, expires_at=expiry_after(EMAIL_CHANGE_HOURS * 60)))
+    db.flush()
+    club = finance.get_setting(db, "club_name")
+    base = os.getenv("CLUB_BASE_URL", "").rstrip("/")
+    mailer.send_email(db, to=new_email, subject=f"{club}: please confirm your new email address",
+                      body=f"Hello {member.name.split()[0]},\n\nPlease confirm this is your new email address for {club} by opening this link within {EMAIL_CHANGE_HOURS} hours:\n\n{base}/me/email/{token}\n\nIf you did not ask for this, ignore this message and nothing will change.\n\n{club}",
+                      stored_body="(confirmation link not stored)", related_type="email_change", related_id=member.id, actor=actor)
+    if old:
+        mailer.send_email(db, to=old, subject=f"{club}: a change to your email address was asked for",
+                          body=f"Hello {member.name.split()[0]},\n\nSomeone signed in as you asked to change your email address for {club} to {new_email}. It only changes if that address confirms it.\n\nIf this was not you, please tell the membership secretary.\n\n{club}",
+                          related_type="email_change", related_id=member.id, actor=actor)
+    return token
+
+
+def pending_email_change(db: Session, token: str) -> EmailChange | None:
+    from app.auth import is_expired
+    from app.security import hash_token
+
+    change = db.scalar(select(EmailChange).where(EmailChange.token_hash == hash_token(token or "")))
+    if change is None or change.used_at is not None or is_expired(change.expires_at):
+        return None
+    return change
+
+
+def confirm_email_change(db: Session, token: str) -> tuple[Member, str]:
+    """The member clicked the link at their new address: change it everywhere it is their sign-in, and sign out old sessions."""
+    from app import audit, auth
+
+    change = pending_email_change(db, token)
+    member = db.get(Member, change.member_id) if change else None
+    if change is None or member is None:
+        raise EmailChangeError("This link has run out or has already been used. Please ask again from My details.")
+    if db.scalar(select(Member.id).where(func.lower(Member.email) == change.new_email, Member.id != member.id)):
+        raise EmailChangeError("Another member now uses that address. Please use Ask the club.")
+    old = (member.email or "").lower()
+    contact = db.scalar(select(Contact).where(Contact.member_id == member.id).order_by(Contact.id))
+    before = audit.snapshot(contact, audit.CONTACT_FIELDS) if contact else {}
+    member.email = change.new_email
+    if contact is not None:
+        old = old or (contact.email or "").lower()
+        contact.email = change.new_email
+    change.used_at = datetime.now(UTC)
+    if old:
+        auth.revoke_sessions(db, old)
+    db.add(AuditLog(actor_email=change.new_email, actor_role="member", action="member.email_changed", target_type="member", target_id=str(member.id),
+                    details={"from": old, "to": change.new_email, "changes": audit.changes(before, audit.snapshot(contact, audit.CONTACT_FIELDS)) if contact else {}}))
+    db.flush()
+    return member, change.new_email
 
 
 def age_on(born: date | None, today: date | None = None) -> int | None:

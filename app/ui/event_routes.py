@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import audit, events, finance, localtime
+from app import audit, events, finance, localtime, people
 from app.db import get_db
 from app.models import (
     Contact,
@@ -74,11 +74,12 @@ def calendar_page(request: Request, year: int | None = None, month: int | None =
 
 def _form_values(event: Event | None) -> dict:
     if event is None:
-        return {"title": "", "start": "", "end": "", "location": "", "event_type": "", "description": "", "bookable": False, "limit": "", "waiting": "", "published": False, "closes": "", "nominal": "", "group": "", "notes": ""}
+        return {"title": "", "start": "", "end": "", "location": "", "event_type": "social", "description": "", "bookable": False, "limit": "", "waiting": "", "published": False, "closes": "", "nominal": "", "group": "", "notes": "", "website_show": True}
     return {
         "title": event.title, "start": localtime.to_input(event.start_at), "end": localtime.to_input(event.end_at), "location": event.location or "", "event_type": event.event_type or "", "description": event.description or "",
         "bookable": bool(event.bookable), "limit": "" if event.tickets_limit is None else event.tickets_limit, "waiting": "" if event.waiting_limit is None else event.waiting_limit,
         "published": bool(event.published), "closes": localtime.to_input(event.sales_close_at), "nominal": event.nominal_code or "", "group": event.group_name or "", "notes": event.notes or "",
+        "website_show": event.website_show is not False,
     }
 
 
@@ -117,10 +118,11 @@ def event_save(
     nominal: str = Form(""),
     group: str = Form(""),
     notes: str = Form(""),
+    website_show: str = Form(""),
     session: SessionRecord = Depends(WRITE),
     db: Session = Depends(get_db),
 ) -> Response:
-    values = {"title": title, "start": start, "end": end, "location": location, "event_type": event_type, "description": description, "bookable": bool(bookable), "limit": limit, "waiting": waiting, "published": bool(published), "closes": closes, "nominal": nominal, "group": group, "notes": notes}
+    values = {"title": title, "start": start, "end": end, "location": location, "event_type": event_type, "description": description, "bookable": bool(bookable), "limit": limit, "waiting": waiting, "published": bool(published), "closes": closes, "nominal": nominal, "group": group, "notes": notes, "website_show": bool(website_show)}
     try:
         starts = localtime.parse_local(start)
         if starts is None:
@@ -129,6 +131,7 @@ def event_save(
         event = events.save_event(
             db, event_id, title=title, start_at=starts, end_at=localtime.parse_local(end), location=location, event_type=event_type, description=description, bookable=bool(bookable),
             tickets_limit=_int_or_none(limit), waiting_limit=_int_or_none(waiting), published=bool(published), sales_close_at=localtime.parse_local(closes), nominal_code=nominal, group_name=group, notes=notes,
+            website_show=bool(website_show),
         )
         _audit(db, session, "event.save", "event", event.id, title=event.title, changes=audit.changes(before, audit.snapshot(event, audit.EVENT_FIELDS)) if before else {})
         db.commit()
@@ -266,10 +269,8 @@ def event_duplicate(event_id: int, weeks: int = Form(1), session: SessionRecord 
 
 
 def _me(db: Session, session: SessionRecord) -> tuple[Member | None, Contact | None]:
-    from sqlalchemy import func
 
-    member = db.scalar(select(Member).where(func.lower(Member.email) == session.email.lower()))
-    contact = db.scalar(select(Contact).where(Contact.member_id == member.id)) if member else db.scalar(select(Contact).where(func.lower(Contact.email) == session.email.lower()))
+    member, contact = people.signed_in(db, session)
     return member, contact
 
 

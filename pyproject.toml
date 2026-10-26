@@ -25,6 +25,7 @@ dev = [
   "ruff>=0.8.0",
   "mypy>=1.12.0",
   "pytest-cov>=6.0.0",
+  "a2wsgi>=1.10",  # only so the tests can check the cPanel start-up file
 ]
 
 [tool.pytest.ini_options]

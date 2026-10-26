@@ -5,7 +5,7 @@
 <p class="muted">Members can book from their account. Not a member yet? <a href="/membership">See how to join</a> or <a href="/join-us">ask us a question</a>.</p>
 <div class="cards">
 {% for c, seat in rows %}{% set taken, free, waiting = seat %}
-  <div class="card"><strong>{{ c.name }}</strong><br><span class="muted">{{ c.starts_at|local }}{% if c.venue %} · {{ c.venue }}{% endif %}</span>
+  <div class="card" id="course-{{ c.id }}"><strong>{{ c.name }}</strong><br><span class="muted">{{ c.starts_at|local }}{% if c.venue %} · {{ c.venue }}{% endif %}</span>
     {% if c.level %}<div class="label">{{ c.level }}</div>{% endif %}
     <div class="metric" style="font-size:1.4rem">{{ c.price_minor|gbp if c.price_minor else "Free" }}</div>
     <span class="badge {{ 'fail' if free == 0 else 'paid' }}">{{ "full" if free == 0 else (free ~ " places left") }}</span>

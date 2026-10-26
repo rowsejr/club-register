@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Your email address{% endblock %}
+{% block content %}
+<div class="login card">
+  <h1>Your email address</h1>
+  {% if error %}<div class="alert error" role="alert">{{ error }}</div>
+  {% elif done %}<div class="alert ok" role="status">Done. Your email address is now <strong>{{ done }}</strong>.</div>
+    <p>Please sign in again with your new address.</p><p><a class="btn" href="/login">Sign in</a></p>
+  {% elif change %}<p>Change your email address to <strong>{{ change.new_email }}</strong>?</p>
+    <form method="post" action="/me/email/{{ token }}"><button type="submit" class="big">Yes, change it</button></form>
+  {% else %}<div class="alert error" role="alert">This link has run out or has already been used. Please ask again from My details.</div>{% endif %}
+</div>
+{% endblock %}

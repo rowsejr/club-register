@@ -62,7 +62,17 @@ test('a feed becomes a protected tab with a bold header', () => {
 test('every feed the Sheet reads is one the office lets it read', () => {
   const sheet = load();
   const python = fs.readFileSync(path.join(__dirname, '..', '..', 'app', 'feeds.py'), 'utf8');
-  for (const [name] of sheet.FEEDS) {
-    assert.match(python, new RegExp(`"${name}": \\("[^"]+", \\([^)]*"sheet"`), name);
+  for (const copy of Object.keys(sheet.COPIES)) {
+    for (const [name] of sheet.COPIES[copy]) {
+      assert.match(python, new RegExp(`"${name}": \\("[^"]+", \\([^)]*"sheet"`), name);
+    }
   }
+});
+
+test('money stays out of the committee copy', () => {
+  const sheet = load();
+  const committee = sheet.feedsFor('committee').map(([name]) => name);
+  for (const money of ['chase', 'payments', 'money', 'members']) assert.ok(!committee.includes(money), money);
+  assert.strictEqual(sheet.feedsFor(null).length, committee.length); // not set up yet: the safe copy
+  assert.ok(sheet.feedsFor('treasurer').some(([name]) => name === 'chase'));
 });
