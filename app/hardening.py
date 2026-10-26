@@ -102,7 +102,10 @@ def install(app: FastAPI) -> None:
             db.execute(text("select 1"))
         except Exception:  # noqa: BLE001
             return JSONResponse({"status": "down", "problems": ["the database cannot be reached"]}, status_code=503)
-        last_job = _aware(db.scalar(select(func.max(JobRun.started_at)).where(JobRun.dry_run.is_(False))))
+        from app.jobs import last_tick
+
+        ran = [t for t in (_aware(db.scalar(select(func.max(JobRun.started_at)).where(JobRun.dry_run.is_(False)))), _aware(last_tick(db))) if t is not None]
+        last_job = max(ran) if ran else None  # the hourly runner notes every call, even when nothing was due
         last_backup = _aware(db.scalar(select(func.max(JobRun.finished_at)).where(JobRun.job == "nightly_backup", JobRun.status == "ok", JobRun.dry_run.is_(False))))
         if last_job is None or now - last_job > STALE_JOBS:
             problems.append("the scheduled jobs have not run in the last 3 hours")

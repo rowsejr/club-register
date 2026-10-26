@@ -115,6 +115,7 @@ serves a request through it.
 2. **Version and data.** The live copy is this branch's merge (see `/version`). It holds only made-up demo data.
 3. **Feed shapes.** Built as written, with the notes in section 2 (Status values, how Household and Hats are worked out,
    courses as their own feed).
-4. **Jobs and backups.** `club-jobs.timer` runs hourly on the server. The nightly backup is made, checked and the last 14
+4. **Jobs and backups.** `club-jobs.timer` runs hourly on the server. (`/readyz` used to report a stopped timer in hours
+   when no job was due; it now counts every hourly call, so it is safe to point an uptime monitor at `/readyz?strict=1`.) The nightly backup is made, checked and the last 14
    are kept on the server, but it is **not yet copied off the server**: that needs a storage bucket (a few pence a month)
    and `CLUB_BACKUP_COMMAND`. Worth doing before real data goes in.

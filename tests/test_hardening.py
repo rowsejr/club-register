@@ -80,6 +80,22 @@ def test_healthz_and_readyz() -> None:
     assert stale.status_code == 503 and "no successful backup" in stale.json()["problems"][0]
 
 
+def test_a_quiet_hour_is_not_mistaken_for_a_stopped_timer() -> None:
+    from app import jobs
+
+    with SessionLocal() as db:
+        long_ago = datetime.now(UTC) - timedelta(hours=8)
+        db.add(JobRun(job="nightly_backup", started_at=long_ago, finished_at=long_ago, status="ok", dry_run=False))
+        db.commit()
+    client = TestClient(app)
+    assert "have not run" in client.get("/readyz").json()["problems"][0]
+    with SessionLocal() as db:
+        jobs.run_due(db, only=["no_such_job"])  # the hourly call: nothing is due, but the runner notes that it ran
+        assert jobs.last_tick(db) is not None
+        jobs.run_due(db, only=["no_such_job"], dry_run=True)  # a rehearsal does not count
+    assert client.get("/readyz").json()["status"] == "ok"
+
+
 # --------------------------------------------------------------------------- backups
 
 

@@ -29,7 +29,7 @@ from app import (
     season,
     training,
 )
-from app.models import JobRun, OutboundEmail, Qualification
+from app.models import AppSetting, JobRun, OutboundEmail, Qualification
 
 ACTOR = "scheduler"
 
@@ -206,7 +206,33 @@ def run_due(db: Session, today: date | None = None, *, dry_run: bool = False, on
             continue
         runs.append(run_job(db, job, today, dry_run, triggered_by))
         db.commit()
+    if not dry_run:
+        note_tick(db)
+        db.commit()
     return runs
+
+
+TICK_KEY = "jobs_last_tick"
+
+
+def note_tick(db: Session) -> None:
+    """Note that the runner was called, even when nothing was due, so the health check can tell a quiet hour from a
+    stopped timer."""
+    row = db.get(AppSetting, TICK_KEY)
+    stamp = datetime.now(UTC).isoformat()
+    if row is None:
+        db.add(AppSetting(key=TICK_KEY, value=stamp))
+    else:
+        row.value = stamp
+    db.flush()
+
+
+def last_tick(db: Session) -> datetime | None:
+    row = db.get(AppSetting, TICK_KEY)
+    try:
+        return datetime.fromisoformat(row.value) if row and row.value else None
+    except ValueError:
+        return None
 
 
 def recent_runs(db: Session, limit: int = 40) -> list[JobRun]:
