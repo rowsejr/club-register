@@ -17,3 +17,8 @@ backups/
 .coverage
 .env
 .venv/
+
+# keys and secrets handed over by hand
+*-keys.txt
+*.pem
+.env
