@@ -1,5 +1,9 @@
 # Club register
 
+> **Status (27 Oct 2026): reference implementation.** The club is running its money on the website's own finance
+> pages (`mycwebdev`). This office is kept as the tested reference for the money rules (invoices, Stripe and
+> GoCardless Direct Debit, webhooks, refunds, renewals). It is not being run beside the website.
+
 The club office for Margate Yacht Club: membership, payments and bookable events, kept simple enough for any
 volunteer to use. It sits beside the club website, which shows the public pages, the calendar, results and duties.
 
