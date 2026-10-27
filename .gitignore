@@ -17,3 +17,6 @@ backups/
 .coverage
 .env
 .venv/
+
+# Office keys list: private, never commit
+club-office-keys.txt

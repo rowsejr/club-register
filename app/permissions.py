@@ -17,7 +17,7 @@ from app.models import SessionRecord, UserRole
 # Base roles. Committee can see everything and decide applications; it cannot change money or records.
 BASE_PERMISSIONS: dict[str, set[str]] = {
     "Admin": {"*"},
-    "Committee": {"members.read", "finance.read", "boats.read", "training.read", "events.read", "reports.read", "applications.decide"},
+    "Committee": {"members.read", "boats.read", "training.read", "events.read", "reports.read", "applications.decide"},
     "Member": set(),
 }
 
@@ -37,25 +37,33 @@ HATS: dict[str, Hat] = {
     ),
     "secretary": Hat(
         "Membership secretary",
-        frozenset({"members.read", "members.write", "applications.decide", "billing.run", "finance.read", "boats.read", "training.read", "reports.read"}),
-        "Members, contacts, enquiries, applications and the renewal billing run. Cannot change payments.",
+        frozenset({"members.read", "members.write", "applications.decide", "billing.run", "boats.read", "training.read", "reports.read"}),
+        "Members, contacts, enquiries, applications and the renewal billing run. Cannot see the bank or change payments.",
     ),
     "bosun": Hat(
         "Harbourmaster (boats and berths)",
-        frozenset({"boats.read", "boats.write", "storage.bill", "members.read", "finance.read", "reports.read"}),
+        frozenset({"boats.read", "boats.write", "storage.bill", "members.read", "reports.read"}),
         "Boat register, storage spaces, allocations, tariffs, the storage billing run and insurance reminders.",
     ),
     "social": Hat(
         "Social secretary",
-        frozenset({"events.read", "events.write", "members.read", "finance.read", "reports.read"}),
+        frozenset({"events.read", "events.write", "members.read", "reports.read"}),
         "Events, tickets for members and the public, and attendee lists.",
     ),
     "training": Hat(
         "Training officer",
-        frozenset({"training.read", "training.write", "members.read", "finance.read", "reports.read"}),
+        frozenset({"training.read", "training.write", "members.read", "reports.read"}),
         "Courses, bookings, waiting lists, attendance, qualifications and junior consent.",
     ),
+    "race_box": Hat(
+        "Race Box",
+        frozenset(),
+        "Opens the website's race box (duties and race results). Carries no extra access in the office.",
+    ),
 }
+
+# The committee posts an administrator can set on a member (Admin ▸ Members): club offices, not office permissions.
+COMMITTEE_POSTS = ["Commodore", "Vice-Commodore", "Rear Commodore", "Secretary", "Treasurer", "Bosun", "Social", "Training", "Membership", "Other"]
 
 PERMISSION_LABELS = {
     "members.read": "See members, contacts, enquiries and applications",

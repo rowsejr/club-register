@@ -731,7 +731,7 @@ def bank_entry_action(entry_id: int, action: str, session: SessionRecord = Depen
 
 
 @router.get("/app/finance/billing", response_class=HTMLResponse)
-def billing_page(request: Request, period: int | None = None, msg: str = "", err: str = "", session: SessionRecord = Depends(ui_session(perm="finance.read")), db: Session = Depends(get_db)) -> Response:
+def billing_page(request: Request, period: int | None = None, msg: str = "", err: str = "", session: SessionRecord = Depends(ui_session(perm="billing.run")), db: Session = Depends(get_db)) -> Response:
     periods = db.scalars(select(MembershipPeriod).order_by(MembershipPeriod.starts_on.desc())).all()
     chosen = db.get(MembershipPeriod, period) if period else (periods[0] if periods else None)
     rows = membership.preview(db, chosen) if chosen else []

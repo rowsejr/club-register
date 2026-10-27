@@ -164,11 +164,9 @@ class Person360:
 
 
 def signed_in(db: Session, session: SessionRecord) -> tuple[Member | None, Contact | None]:
-    """The member and contact behind a sign-in. A sign-in from the website can name the member, for families who share
-    one email address; otherwise it is the member holding the address, or a contact with it."""
-    member = db.get(Member, session.member_id) if session.member_id else None
-    if member is None:
-        member = db.scalar(select(Member).where(func.lower(Member.email) == session.email.lower()).order_by(Member.id))
+    """The member and contact behind a sign-in: whoever holds that email address. Every address belongs to one
+    person (ensure_unique_email), so there is never a choice to make."""
+    member = db.scalar(select(Member).where(func.lower(Member.email) == session.email.lower()).order_by(Member.id))
     if member is not None:
         contact = db.scalar(select(Contact).where(Contact.member_id == member.id).order_by(Contact.id))
         return member, contact
@@ -177,6 +175,23 @@ def signed_in(db: Session, session: SessionRecord) -> tuple[Member | None, Conta
 
 class EmailChangeError(ValueError):
     """Something the member can put right, shown to them as it is."""
+
+
+def ensure_unique_email(db: Session, email: str | None, *, current: str | None = None, exclude_member_id: int | None = None, exclude_contact_id: int | None = None) -> None:
+    """One email address belongs to one person (every household member has their own). Raise EmailChangeError if
+    another member, contact or office sign-in already uses it. ``current`` is the address already on this record, if
+    any: passing it skips the check when nothing is actually changing."""
+    if not email:
+        return
+    email = email.strip().lower()
+    if current and email == current.strip().lower():
+        return
+    if db.scalar(select(Member.id).where(func.lower(Member.email) == email, Member.id != (exclude_member_id or 0))):
+        raise EmailChangeError("Another member already uses that email address. Give this person their own.")
+    if db.scalar(select(Contact.id).where(func.lower(Contact.email) == email, Contact.id != (exclude_contact_id or 0))):
+        raise EmailChangeError("Another person already uses that email address. Give this person their own.")
+    if db.scalar(select(UserRole.id).where(func.lower(UserRole.email) == email)):
+        raise EmailChangeError("That email address already signs in to the office as a volunteer. Check with an administrator.")
 
 
 EMAIL_CHANGE_HOURS = 24

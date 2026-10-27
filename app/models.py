@@ -42,6 +42,8 @@ class Member(Base):
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     membership_number: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    committee_post: Mapped[str | None] = mapped_column(String(80), nullable=True)  # Commodore, Treasurer, and so on; set by an administrator
+    external_ref: Mapped[str | None] = mapped_column(String(80), unique=True, nullable=True)  # the old system's id, for the one-off import
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -71,6 +73,7 @@ class Contact(Base):
     directory_consent: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # may other members see their phone and email
     consents_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     consents_by: Mapped[str | None] = mapped_column(String(255), nullable=True)  # who answered (a parent, for a junior)
+    external_ref: Mapped[str | None] = mapped_column(String(80), unique=True, nullable=True)  # the old system's id, for the one-off import
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -304,6 +307,7 @@ class Boat(Base):
     usage: Mapped[str | None] = mapped_column(String(120), nullable=True)
     tags: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_club_boat: Mapped[bool | None] = mapped_column(Boolean, default=False, nullable=True)
+    external_ref: Mapped[str | None] = mapped_column(String(80), unique=True, nullable=True)  # the old system's boat id, for the one-off import
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
 
@@ -478,7 +482,6 @@ class SessionRecord(Base):
     role: Mapped[Role] = mapped_column(Enum(Role), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    member_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # which member, when a family shares one email address
 
 
 class EmailChange(Base):

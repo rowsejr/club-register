@@ -23,19 +23,19 @@ def _notice(request: Request, heading: str, message: str, status: int) -> Respon
 
 
 @router.get("/sso", response_class=HTMLResponse)
-def sign_in_from_website(request: Request, email: str = "", ts: str = "", nonce: str = "", sig: str = "", member_id: str = "", next: str = "/app", db: Session = Depends(get_db)) -> Response:
+def sign_in_from_website(request: Request, email: str = "", ts: str = "", nonce: str = "", sig: str = "", next: str = "/app", db: Session = Depends(get_db)) -> Response:
     if _limited(request, db, "sso", 60):
         db.commit()
         return _notice(request, "Please wait a minute", "Too many sign-in attempts. Please try again shortly.", 429)
     try:
-        role, chosen = website.check_sso(db, email, ts, nonce, sig, member_id)
+        role = website.check_sso(db, email, ts, nonce, sig)
     except website.StaffMustSignIn:
         db.commit()
         return RedirectResponse("/login?staff=1", status_code=303)
     except FeedRefused as exc:
         db.commit()
         return _notice(request, "That sign-in link did not work", str(exc), exc.status)
-    cookie = auth.start_session(db, email, role, member_id=chosen)
+    cookie = auth.start_session(db, email, role)
     db.commit()
     target = next if next.startswith("/app") else "/app"
     # The session cookie is "SameSite=Strict", so the last step must start on this site: a page that moves itself on.

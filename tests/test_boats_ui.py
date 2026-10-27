@@ -197,11 +197,12 @@ def test_harbourmaster_hat_runs_boats_but_not_the_money() -> None:
     code = re.search(r"<code>([^<]+)</code>", c.post("/login", data={"email": "bosun@example.com"}).text)
     c.cookies.set("club_session", c.post("/login/token", data={"token": code.group(1)}, follow_redirects=False).cookies["club_session"])
     nav = c.get("/app").text
-    assert 'href="/app/boats"' in nav and 'href="/app/finance/chase"' in nav  # finance.read lets them see invoices
+    assert 'href="/app/boats"' in nav and 'href="/app/finance/chase"' not in nav  # the books are Treasurer and Admin only (Phase 2, D2)
     for path in ("/app/boats", "/app/storage", "/app/storage/tariffs", "/app/storage/billing", "/app/boats/reports", "/app/boats/new"):
         assert c.get(path).status_code == 200, path
     token = _csrf(c, "/app/boats")
     assert c.post("/app/storage/tariffs", data={"csrf": token, "year": 2027, "resource_type": "berth", "fee": "10"}, follow_redirects=False).status_code == 303
+    assert c.get("/app/finance/chase").status_code == 403
     assert c.get("/app/finance/new").status_code == 403 and c.get("/app/finance/settings").status_code == 403
     assert c.get("/app/members/new").status_code == 403
     committee = _login("chair@example.com", Role.COMMITTEE)

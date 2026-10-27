@@ -1,5 +1,9 @@
 # Club register
 
+> **Status (27 Oct 2026): reference implementation.** The club is running its money on the website's own finance
+> pages (`mycwebdev`). This office is kept as the tested reference for the money rules (invoices, Stripe and
+> GoCardless Direct Debit, webhooks, refunds, renewals). It is not being run beside the website.
+
 The club office for Margate Yacht Club: membership, payments and bookable events, kept simple enough for any
 volunteer to use. It sits beside the club website, which shows the public pages, the calendar, results and duties.
 
@@ -37,7 +41,6 @@ pytest
 ruff check .                 # do not run "ruff format": the code is laid out by hand
 mypy app
 python tools/scan.py         # no forbidden words and no personal data anywhere in the repository
-node --test "sheet/tests/*.test.js"
 ```
 
 Install the scan as a pre-commit hook with `git config core.hooksPath tools/hooks`.
@@ -48,8 +51,8 @@ Install the scan as a pre-commit hook with `git config core.hooksPath tools/hook
 - [docs/OPERATIONS.md](docs/OPERATIONS.md): settings, backups, monitoring, closing a year
 - [docs/EMAIL-JOBS-PAYMENTS.md](docs/EMAIL-JOBS-PAYMENTS.md): email from the club's address, scheduled jobs, Stripe card and Direct Debit
 - [docs/WEBSITE.md](docs/WEBSITE.md): how the club website and the office work together
-- [INTEGRATION-CHANGES.md](INTEGRATION-CHANGES.md): the agreed feed shapes and settings between the office, the website and the Sheets
+- [INTEGRATION-CHANGES.md](INTEGRATION-CHANGES.md): the agreed feed shapes and settings between the office and the website
 - [docs/SQLITE-DECISION.md](docs/SQLITE-DECISION.md): why one SQLite file
 
-[sheet/](sheet/README.md) is a short Google Apps Script that keeps a read-only copy of key lists (who owes, payments,
-members without contact details, bookings, the RYA census) in a Google Sheet for the committee.
+There is no Google Sheet fed directly by the office any more (Phase 2): the website reads the office's feeds and
+keeps its own Sheet up to date. Money never leaves the office.

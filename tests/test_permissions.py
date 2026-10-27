@@ -59,13 +59,14 @@ def test_permission_sets_are_what_the_help_text_promises() -> None:
 def test_secretary_hat_runs_membership_but_cannot_touch_payments(invoice_id: int) -> None:
     secretary = _signin("sec@example.com", Role.MEMBER, "secretary")
     token = _csrf(secretary, "/app")
-    for path in ("/app/members", "/app/contacts", "/app/enquiries", "/app/applications", "/app/enquiries/new", "/app/applications/new", "/app/members/new", "/app/finance", "/app/finance/billing"):
+    for path in ("/app/members", "/app/contacts", "/app/enquiries", "/app/applications", "/app/enquiries/new", "/app/applications/new", "/app/members/new", "/app/finance/billing"):
         assert secretary.get(path).status_code == 200, path
     made = secretary.post("/app/members", data={"csrf": token, "name": "New Member", "email": "new@example.com"}, follow_redirects=False)
     assert made.status_code == 303
     assert secretary.post("/app/enquiries/new", data={"csrf": token, "name": "Caller", "phone": "123"}, follow_redirects=False).status_code == 303
     assert secretary.post(f"/app/finance/invoices/{invoice_id}/payment", data={"csrf": token, "amount": "10", "method": "bank"}).status_code == 403
     assert secretary.post(f"/app/finance/invoices/{invoice_id}/void", data={"csrf": token, "reason": "x"}).status_code == 403
+    assert secretary.get("/app/finance").status_code == 403  # the books are Treasurer and Admin only (Phase 2, D2)
     assert secretary.get("/app/finance/new").status_code == 403
     assert secretary.get("/app/finance/settings").status_code == 403
     assert secretary.get("/app/admin/users").status_code == 403
@@ -109,13 +110,14 @@ def test_secretary_cannot_approve_applications_without_the_decide_permission() -
 
 def test_committee_can_look_and_decide_but_not_change_records_or_money(invoice_id: int) -> None:
     committee = _signin("chair@example.com", Role.COMMITTEE)
-    for path in ("/app", "/app/members", "/app/contacts", "/app/finance", "/app/finance/debtors", "/app/enquiries", "/app/applications", "/app/finance/bank"):
+    for path in ("/app", "/app/members", "/app/contacts", "/app/enquiries", "/app/applications"):
         assert _status(committee, "get", path) == 200, path
+    for path in ("/app/finance", "/app/finance/debtors", "/app/finance/bank", "/app/finance/settings"):
+        assert _status(committee, "get", path) == 403, path  # the books are Treasurer and Admin only (Phase 2, D2)
     assert _status(committee, "get", "/app/members/new") == 403
     assert _status(committee, "post", "/app/members", name="X", email="x@example.com") == 403
     assert _status(committee, "post", f"/app/finance/invoices/{invoice_id}/payment", amount="10", method="bank") == 403
     assert _status(committee, "post", f"/app/finance/invoices/{invoice_id}/void", reason="x") == 403
-    assert _status(committee, "get", "/app/finance/settings") == 403
     assert _status(committee, "get", "/app/admin/users") == 403
     assert _status(committee, "post", "/app/enquiries/new", name="x", phone="1") == 403
 

@@ -7,6 +7,10 @@ Nothing here changes how the office handles money. It is almost all feeds, setti
 done. Run `GET /version` on the office to see the commit that is live. Section 2 is the agreed contract: if a feed
 shape changes, update section 2 in the same commit.
 
+**Superseded by Phase 2** (26 October 2026, see the 27 October decision (see the README)): the office's `sheet:` key
+and the `sheet/` Apps Script project (§1.1, §2.8) are retired. The website now feeds its own Sheet from the office's
+feeds (§4.2 there), and money never leaves the office (D3). Everything else below still stands.
+
 ## 0. How we will work
 
 1. James makes the changes below on a branch called `website-integration` in VS Code, runs `pytest`, `ruff check .`, `mypy app` and `python tools/scan.py`, then pushes. CI must be green before merging to `main`.

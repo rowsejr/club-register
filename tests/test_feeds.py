@@ -1,4 +1,7 @@
-"""The signed read-only feeds for the committee's Sheet and the website: signing, refusals, replays and what each feed holds."""
+"""The signed read-only feeds for the club website: signing, refusals, replays and what each feed holds.
+
+Phase 2 (D3/D4) retired the Google Sheet client: the website now feeds its own Sheet, and money never leaves the
+office, so ``website`` is the only client these feeds know."""
 
 import time
 import uuid
@@ -13,16 +16,12 @@ from app.db import SessionLocal
 from app.main import app
 from app.models import Boat, Contact, Event, Member, NominalCode
 
-SHEET, SITE, WRONG, SHORT = "sheet-secret-0123456789", "site-secret-0123456789", "wrong-secret-0123456789", "short"
-
-# The same example is checked by the Sheet's own tests (sheet/tests/sign.test.js), so both sides sign identically.
-VECTOR = {"secret": "test-secret-0123456789", "name": "members", "client": "sheet", "ts": "1700000000", "nonce": "abcdef0123456789",
-          "sig": "9257ecfd5a118024972c84a9bd6fb6d2a8da02e07c802d328903b37ca6f2f3a6"}
+SITE, WRONG, SHORT = "site-secret-0123456789", "wrong-secret-0123456789", "short"
 
 
 @pytest.fixture(autouse=True)
 def keys(monkeypatch):
-    monkeypatch.setenv("CLUB_FEED_KEYS", f"sheet:{SHEET}, website:{SITE}")
+    monkeypatch.setenv("CLUB_FEED_KEYS", f"website:{SITE}")
     monkeypatch.setenv("CLUB_BASE_URL", "https://office.example.org")
 
 
@@ -48,69 +47,58 @@ def club():
         yield
 
 
-def _url(name, client="sheet", secret=SHEET, ts=None, nonce=None):
+def _url(name, client="website", secret=SITE, ts=None, nonce=None):
     ts = str(int(time.time()) if ts is None else ts)
     nonce = nonce or uuid.uuid4().hex
     return f"/feeds/{name}.json?client={client}&ts={ts}&nonce={nonce}&sig={feeds.sign(secret, name, client, ts, nonce)}"
 
 
-def test_the_signature_matches_the_shared_example() -> None:
-    assert feeds.sign(VECTOR["secret"], VECTOR["name"], VECTOR["client"], VECTOR["ts"], VECTOR["nonce"]) == VECTOR["sig"]
-
-
 def test_only_fresh_correctly_signed_requests_from_the_right_tool_are_answered(club) -> None:
     web = TestClient(app)
-    good = _url("members")
+    good = _url("siteMembers")
     assert web.get(good).status_code == 200
     assert web.get(good).status_code == 401  # the same address cannot be used twice
-    assert web.get(_url("members", ts=int(time.time()) - 900)).status_code == 401  # too old
-    assert web.get(_url("members", secret=WRONG)).status_code == 401
-    assert web.get(_url("members", client="website", secret=SITE)).status_code == 403  # the website may not read the members list
-    assert web.get(_url("directory")).status_code == 403  # and the Sheet may not read the directory
+    assert web.get(_url("siteMembers", ts=int(time.time()) - 900)).status_code == 401  # too old
+    assert web.get(_url("siteMembers", secret=WRONG)).status_code == 401
+    assert web.get(_url("siteMembers", client="sheet", secret=SITE)).status_code == 403  # the Sheet client was retired in Phase 2
     assert web.get(_url("nonsense")).status_code == 404
-    assert web.get("/feeds/members.json").status_code in {401, 403}
+    assert web.get("/feeds/siteMembers.json").status_code in {401, 403}
 
 
 def test_no_keys_means_no_feeds(club, monkeypatch) -> None:
-    monkeypatch.setenv("CLUB_FEED_KEYS", f"sheet:{SHORT}")  # a secret too short to be safe counts as none
-    assert TestClient(app).get(_url("members", secret=SHORT)).status_code == 403
-
-
-def test_the_committee_feeds_hold_what_the_sheet_shows(club) -> None:
-    web = TestClient(app)
-    members = web.get(_url("members")).json()
-    assert members["columns"] == ["Name", "Number", "Membership", "Status", "Joined", "Until", "Money"]
-    assert members["rows"][0][:4] == ["Ann Sailor", "7", "Single Adult Sailing", "active"] and members["rows"][0][-1] == "Overdue £108.00"
-    assert "ann@example.org" not in str(members) and "07700" not in str(members)  # no contact details in the committee copy
-    chase = web.get(_url("chase")).json()
-    assert chase["rows"][0][:3] == ["Ann Sailor", 108.0, 15]
-    census = web.get(_url("census")).json()
-    assert "Female" in census["columns"] and any(row[-1] == 1 and row[1] == 1 for row in census["rows"])
-    money = dict(web.get(_url("money")).json()["rows"])
-    assert money["Owed to the club"] == 108.0 and money["Active members"] == 2
-    assert web.get(_url("payments")).json()["rows"] == []
-    assert web.get(_url("bookings")).json()["columns"][0] == "Event"
+    monkeypatch.setenv("CLUB_FEED_KEYS", f"website:{SHORT}")  # a secret too short to be safe counts as none
+    assert TestClient(app).get(_url("siteMembers", secret=SHORT)).status_code == 403
 
 
 def test_the_website_feeds_respect_peoples_choices(club) -> None:
     web = TestClient(app)
-    directory = web.get(_url("directory", client="website", secret=SITE)).json()
+    directory = web.get(_url("directory")).json()
     assert directory["rows"] == [["Ann Sailor", "Single Adult Sailing", "ann@example.org", "07700 900123"]]  # only the member who agreed
-    boats = web.get(_url("boats", client="website", secret=SITE)).json()
+    boats = web.get(_url("boats")).json()
     assert boats["rows"][0][1:6] == ["Puffin", "Laser", "123456", 1100, "Ann Sailor"]  # the first six columns never change
-    coming = web.get(_url("events", client="website", secret=SITE)).json()
+    coming = web.get(_url("events")).json()
     row = dict(zip(coming["columns"], coming["rows"][0], strict=True))
     assert row["Title"] == "Laying-up Supper" and row["Member price (£)"] == 25.0 and row["Visitor price (£)"] == 30.0 and row["Places left"] == 40
     assert row["Book at"].startswith("https://office.example.org/whats-on/")
+    members = web.get(_url("siteMembers")).json()
+    by_name = {r["Name"]: r for r in [dict(zip(members["columns"], row, strict=True)) for row in members["rows"]]}
+    assert by_name["Ann Sailor"]["Email"] == "ann@example.org" and by_name["Quiet Person"]["Email"] == "quiet@example.org"
 
 
 def test_used_request_ids_are_forgotten_after_a_day(club) -> None:
     from app.models import WebhookEvent
 
     with SessionLocal() as db:
-        db.add(WebhookEvent(provider="feed:sheet", event_id="old-nonce-123", received_at=datetime.now(UTC) - timedelta(days=2)))
+        db.add(WebhookEvent(provider="feed:website", event_id="old-nonce-123", received_at=datetime.now(UTC) - timedelta(days=2)))
         db.commit()
-    TestClient(app).get(_url("money"))
+    TestClient(app).get(_url("siteMembers"))
     with SessionLocal() as db:
         assert db.scalar(select(WebhookEvent.id).where(WebhookEvent.event_id == "old-nonce-123")) is None
         assert db.scalar(select(Event.id)) is not None
+
+
+def test_money_never_leaves_the_office(club) -> None:
+    """Phase 2, D3: no who-owes, payments or money-summary feed exists at all, for any client."""
+    for name in ("chase", "payments", "money", "members", "bookings", "census"):
+        assert name not in feeds.FEEDS, name
+        assert TestClient(app).get(_url(name)).status_code == 404

@@ -376,12 +376,12 @@ def _start_membership(db: Session, member: Member, joined: date | None) -> None:
 
 
 def _member_form(request: Request, session: SessionRecord, member: Member | None, values: dict[str, str], error: str = "", status: int = 200) -> Response:
-    return templates.TemplateResponse(request, "member_form.html", _ctx(session, "members", member=member, v=values, error=error, types=_type_names(request)), status_code=status)
+    return templates.TemplateResponse(request, "member_form.html", _ctx(session, "members", member=member, v=values, error=error, types=_type_names(request), committee_posts=permissions.COMMITTEE_POSTS), status_code=status)
 
 
 def _member_values(member: Member | None) -> dict[str, str]:
     if member is None:
-        return {"name": "", "email": "", "membership_type": "", "renewal_status": "active", "payment_status": "paid", "join_date": "", "expiry_date": ""}
+        return {"name": "", "email": "", "membership_type": "", "renewal_status": "active", "payment_status": "paid", "join_date": "", "expiry_date": "", "committee_post": ""}
     return {
         "name": member.name,
         "email": member.email or "",
@@ -390,6 +390,7 @@ def _member_values(member: Member | None) -> dict[str, str]:
         "payment_status": member.payment_status,
         "join_date": member.join_date.isoformat() if member.join_date else "",
         "expiry_date": member.expiry_date.isoformat() if member.expiry_date else "",
+        "committee_post": member.committee_post or "",
     }
 
 
@@ -409,7 +410,7 @@ def member_detail(member_id: int, request: Request, saved: str = "", session: Se
         owned = owned | (Invoice.contact_id == contact.id)
     invoices = db.scalars(select(Invoice).where(owned).order_by(Invoice.id.desc()).limit(10)).all()
     return templates.TemplateResponse(
-        request, "member_form.html", _ctx(session, "members", member=member, v=_member_values(member), invoices=invoices, contact=contact, saved=bool(saved), types=_type_names(request))
+        request, "member_form.html", _ctx(session, "members", member=member, v=_member_values(member), invoices=invoices, contact=contact, saved=bool(saved), types=_type_names(request), committee_posts=permissions.COMMITTEE_POSTS)
     )
 
 
@@ -425,18 +426,21 @@ def member_save(
     payment_status: str = Form("paid"),
     join_date: str = Form(""),
     expiry_date: str = Form(""),
+    committee_post: str = Form(""),
     session: SessionRecord = Depends(ui_session(perm="members.write")),
     db: Session = Depends(get_db),
 ) -> Response:
     member = db.get(Member, member_id) if member_id else None
     if member_id and not member:
         raise UiError(404, "Member not found")
-    values = {"name": name, "email": email, "membership_type": membership_type, "renewal_status": renewal_status, "payment_status": payment_status, "join_date": join_date, "expiry_date": expiry_date}
+    values = {"name": name, "email": email, "membership_type": membership_type, "renewal_status": renewal_status, "payment_status": payment_status, "join_date": join_date, "expiry_date": expiry_date, "committee_post": committee_post}
     before = audit.snapshot(member, audit.MEMBER_FIELDS) if member else {}
     try:
         if not name.strip():
             raise ValueError("Name is required")
         clean_email = _clean_email(email) if email.strip() else None  # some members have no email on file
+        linked_contact = db.scalar(select(Contact).where(Contact.member_id == member_id)) if member_id else None
+        people.ensure_unique_email(db, clean_email, current=member.email if member else None, exclude_member_id=member_id, exclude_contact_id=linked_contact.id if linked_contact else None)
         joined, expires = _opt_date(join_date), _opt_date(expiry_date)
         is_new = member is None
         if member is None:
@@ -445,6 +449,8 @@ def member_save(
         member.name, member.email = name.strip(), clean_email
         member.membership_type, member.renewal_status, member.payment_status = membership_type.strip() or "standard", renewal_status.strip(), payment_status.strip()
         member.join_date, member.expiry_date = joined, expires
+        if session.role == Role.ADMIN:  # a club office, not an office permission: only an administrator sets it
+            member.committee_post = committee_post.strip()[:80] or None
         db.flush()
         if is_new:
             _start_membership(db, member, joined)
@@ -563,6 +569,7 @@ def contact_save(
         if not name.strip():
             raise ValueError("Name is required")
         clean_email = _clean_email(email) if email.strip() else None
+        people.ensure_unique_email(db, clean_email, current=contact.email if contact else None, exclude_contact_id=contact.id if contact else None)
         born = _opt_date(birth_date)
         if contact is None:
             contact = Contact(name=name.strip())

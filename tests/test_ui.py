@@ -56,7 +56,7 @@ def test_member_crud_search_and_csrf(admin: TestClient) -> None:
     assert "Ann Sailor" in detail.text and "ann@example.com" in detail.text and "Saved." in detail.text
 
     dup = admin.post("/app/members", data={"csrf": token, "name": "Other", "email": "ann@example.com"})
-    assert dup.status_code == 409 and "already exists" in dup.text
+    assert dup.status_code == 422 and "already uses" in dup.text  # one email per person (Phase 2, D6)
     bad = admin.post("/app/members", data={"csrf": token, "name": "X", "email": "nope"})
     assert bad.status_code == 422
     bad_date = admin.post(

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from typing import Any
 
-MEMBER_FIELDS = ("name", "email", "membership_type", "renewal_status", "payment_status", "join_date", "expiry_date", "active")
+MEMBER_FIELDS = ("name", "email", "membership_type", "renewal_status", "payment_status", "join_date", "expiry_date", "active", "committee_post")
 CONTACT_FIELDS = ("name", "email", "phone", "address", "birth_date", "notes", "suppressed", "gender", "emergency_name", "emergency_phone", "photo_consent", "directory_consent")
 EVENT_FIELDS = ("title", "start_at", "end_at", "location", "event_type", "bookable", "published", "tickets_limit", "waiting_limit", "nominal_code")
 

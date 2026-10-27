@@ -73,7 +73,7 @@ def test_detail_page_offers_edit_for_drafts_and_duplicate_for_all(db) -> None:
     assert "Edit draft" in page and "Duplicate" in page and "Hello there" in page and "boat park" in page and "due on receipt" in page and ">Draft<" in page
 
 
-def test_the_price_list_can_be_read_by_finance_and_changed_only_by_the_treasurer(db) -> None:
+def test_the_price_list_is_seen_and_changed_only_by_the_treasurer(db) -> None:
     catalogue.seed_starter_items(db)
     db.commit()
     treasurer = login("tre@example.org", Role.COMMITTEE, hats="treasurer")
@@ -86,5 +86,5 @@ def test_the_price_list_can_be_read_by_finance_and_changed_only_by_the_treasurer
     clash = treasurer.post("/app/finance/items", data={"csrf": token, "name": "Crane lift", "nominal": "0101", "price": "1"}, follow_redirects=True)
     assert "already an item" in clash.text
     bosun = login("bosun@example.org", Role.COMMITTEE, hats="bosun")
-    assert bosun.get("/app/finance/items").status_code == 200  # the harbourmaster can see prices, not change them
+    assert bosun.get("/app/finance/items").status_code == 403  # the books are Treasurer and Admin only (Phase 2, D2)
     assert bosun.post("/app/finance/items", data={"csrf": csrf(bosun), "name": "Sneaky", "price": "1"}).status_code == 403

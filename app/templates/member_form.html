@@ -24,6 +24,10 @@
     <label>Joined<input type="date" name="join_date" value="{{ v.join_date }}"></label>
     <label>Expires<input type="date" name="expiry_date" value="{{ v.expiry_date }}"></label>
   </div>
+  {% if role == "Admin" %}
+  <label>Committee post <span class="muted">(administrator only)</span>
+    <select name="committee_post"><option value="">None</option>{% for p in committee_posts %}<option value="{{ p }}" {{ "selected" if v.committee_post == p }}>{{ p }}</option>{% endfor %}</select></label>
+  {% elif v.committee_post %}<p class="muted">Committee post: {{ v.committee_post }}</p>{% endif %}
   <div class="actions"><button type="submit">Save</button><a class="btn secondary" href="/app/members">Back</a></div>
 </form>
 {% if member %}

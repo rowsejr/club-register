@@ -20,8 +20,11 @@ website's database.
 The office administrator makes one long random secret for the website and sets it on the office server:
 
 ```bash
-CLUB_FEED_KEYS="website:<at least 32 random characters>,sheet:<another one, for the committee's Sheet>"
+CLUB_FEED_KEYS="website:<at least 32 random characters>"
 ```
+
+(Phase 1 also had a `sheet:` key for a Google Sheet the office fed directly. Phase 2 retired that: money must never leave
+the office, so the website now keeps its own Sheet up to date from these feeds instead.)
 
 The same secret goes in the website's configuration (not in its code or its git repository). Every request below is
 signed with it using HMAC-SHA256: the parts are joined with a new line (`\n`), and the signature is lower-case hex.
@@ -48,9 +51,9 @@ sig = HMAC(secret, "<name>\nwebsite\n<ts>\n<nonce>")          (refused after 5 m
 
 | Feed | Columns |
 |---|---|
-| `siteMembers` | Member id, Name, Email, Mobile, Membership, Status, Until, Household, Hats, Updated. Every current member, keyed by the office's member id |
+| `siteMembers` | Member id, Name, Email, Mobile, Membership, Status, Until, Household, Hats, Updated, Committee post, External ref. Every current member, keyed by the office's member id |
 | `directory` | Name, Membership, Email, Phone. **Only members who agreed** to be in the members' directory |
-| `boats` | Id, Name, Class, Sail number, Portsmouth number, Owner, Boat id, Owner member id, Club boat, Status, Insurance until, Updated |
+| `boats` | Id, Name, Class, Sail number, Portsmouth number, Owner, Boat id, Owner member id, Club boat, Status, Insurance until, Updated, External ref |
 | `events` | Id, Title, Starts, Ends, Where, Kind, Member price (£), Visitor price (£), Places left, Book at, Website show |
 | `courses` | Course id, Title, Starts, Ends, Where, Level, Price (£), Places left, Minimum age, Book at |
 
@@ -90,24 +93,22 @@ The website already knows who is signed in. When a member presses **My membershi
 it straight away:
 
 ```
-GET https://office.margateyachtclub.co.uk/sso?email=<email>&ts=<ts>&nonce=<nonce>&sig=<sig>[&member_id=<id>][&next=/app/...]
+GET https://office.margateyachtclub.co.uk/sso?email=<email>&ts=<ts>&nonce=<nonce>&sig=<sig>[&next=/app/...]
 sig = HMAC(secret, "sso\n<email, trimmed and in lower case>\n<ts>\n<nonce>")                (works once, for 2 minutes)
-sig = HMAC(secret, "sso\n<email>\n<member_id>\n<ts>\n<nonce>")                             (with member_id)
 ```
 
-Families often share one email address. Send `member_id` (the `Member id` from `siteMembers`) so the right person is
-signed in; the office checks that member holds or shares that address. `next` can send them to a particular page, such
-as `/app/me/profile` for "Edit my details"; it must start with `/app`.
+Every email address belongs to one person (Phase 2, D6), so there is nobody to choose between: the address alone is
+enough. `next` can send them to a particular page, such as `/app/me/profile` for "Edit my details"; it must start
+with `/app`.
 
 ```php
-function club_office_link(string $email, ?int $memberId = null, string $next = '/app'): string {
+function club_office_link(string $email, string $next = '/app'): string {
     $email = strtolower(trim($email));
     $ts = (string) time();
     $nonce = club_nonce();
-    $parts = $memberId === null ? ['sso', $email, $ts, $nonce] : ['sso', $email, (string) $memberId, $ts, $nonce];
-    $query = ['email' => $email, 'ts' => $ts, 'nonce' => $nonce, 'sig' => club_sign(getenv('CLUB_WEBSITE_KEY'), $parts), 'next' => $next];
-    if ($memberId !== null) { $query['member_id'] = $memberId; }
-    return 'https://office.margateyachtclub.co.uk/sso?' . http_build_query($query);
+    $sig = club_sign(getenv('CLUB_WEBSITE_KEY'), ['sso', $email, $ts, $nonce]);
+    return 'https://office.margateyachtclub.co.uk/sso?' . http_build_query(
+        ['email' => $email, 'ts' => $ts, 'nonce' => $nonce, 'sig' => $sig, 'next' => $next]);
 }
 // In the page handler for the button: header('Location: ' . club_office_link($user['email'])); exit;
 ```
@@ -206,3 +207,6 @@ through the website host's mailbox ([EMAIL-JOBS-PAYMENTS.md](EMAIL-JOBS-PAYMENTS
 3. Who looks after the keys, Cloudflare, the website host and Stripe, and who holds a spare copy of each.
 4. Membership rules the office applies: the membership year, the renewal window, when unpaid renewals lapse, family
    limits and proposers.
+
+The club decided on 27 October 2026 to run on the website's own finance instead; this office is kept as a tested
+reference for the money rules. See the README.

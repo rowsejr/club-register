@@ -1,12 +1,14 @@
-"""Read-only copies of club data for other tools: the committee's Google Sheet and the club website.
+"""Read-only copies of club data for the club website.
 
-Nothing here can change anything in the office. Each tool has its own key and may only read the feeds listed for it.
+Nothing here can change anything in the office. The website has its own key and may only read the feeds listed
+below. (Phase 1 also had a key for a Google Sheet; that Sheet is retired — Phase 2 decisions D3/D4 — because the
+website now feeds its own Sheet, and money never leaves the office. Remove ``sheet:...`` from ``CLUB_FEED_KEYS``.)
 
-Keys (environment): ``CLUB_FEED_KEYS="sheet:<long random secret>,website:<another one>"``
+Keys (environment): ``CLUB_FEED_KEYS="website:<long random secret>"``
 
 A tool asks for a feed with a signed address::
 
-    GET /feeds/<name>.json?client=sheet&ts=<unix seconds>&nonce=<random text>&sig=<hex>
+    GET /feeds/<name>.json?client=website&ts=<unix seconds>&nonce=<random text>&sig=<hex>
 
     sig = HMAC-SHA256(secret, "<name>\\n<client>\\n<ts>\\n<nonce>")
 
@@ -24,21 +26,17 @@ import time
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app import events, finance, office, training
+from app import events, training
 from app.models import (
     Boat,
     BoatDesign,
     Contact,
     ContactRelation,
-    Event,
-    EventTicket,
-    Invoice,
     Member,
     Role,
-    TicketType,
     TrainingCourse,
     UserRole,
     WebhookEvent,
@@ -48,24 +46,15 @@ MAX_AGE_SECONDS = 300
 
 # feed name: (what it is, which tools may read it)
 FEEDS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "chase": ("Who owes money, longest late first", ("sheet",)),
-    "payments": ("Money received in the last 13 months", ("sheet",)),
-    "members": ("Members, with no contact details", ("sheet",)),
-    "bookings": ("Places booked on coming events", ("sheet",)),
-    "census": ("RYA census counts by age band and gender", ("sheet",)),
-    "money": ("Money summary", ("sheet",)),
-    "events": ("Coming events, with booking links", ("sheet", "website")),
-    "courses": ("Courses open for booking, with booking links", ("sheet", "website")),
-    "boats": ("Boats with their owner, class, sail number and Portsmouth Yardstick", ("sheet", "website")),
+    "events": ("Coming events, with booking links", ("website",)),
+    "courses": ("Courses open for booking, with booking links", ("website",)),
+    "boats": ("Boats with their owner, class, sail number and Portsmouth Yardstick", ("website",)),
     "directory": ("Members who agreed to be in the members' directory", ("website",)),
-    "siteMembers": ("Every current member, keyed by the office's member id (the Sheet gets it without email and mobile)", ("website", "sheet")),
+    "siteMembers": ("Every current member, keyed by the office's member id", ("website",)),
 }
 
-# Columns a tool does not get even though it may read the feed.
-WITHHELD: dict[tuple[str, str], set[str]] = {("siteMembers", "sheet"): {"Email", "Mobile"}}
-
 # How hats are named in feeds. The base roles Admin and Committee come first.
-HAT_NAMES = {"treasurer": "Treasurer", "secretary": "Secretary", "bosun": "Bosun", "social": "Social", "training": "Training"}
+HAT_NAMES = {"treasurer": "Treasurer", "secretary": "Secretary", "bosun": "Bosun", "social": "Social", "training": "Training", "race_box": "Race Box"}
 
 
 class FeedRefused(Exception):
@@ -129,59 +118,11 @@ def _day(value: date | datetime | None) -> str:
     return value.date().isoformat() if isinstance(value, datetime) else (value.isoformat() if value else "")
 
 
-def _chase(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
-    rows = [[d.contact.name, _pounds(d.owed), d.days_overdue, ", ".join(i.reference for i, _ in d.invoices), _day(d.last_chased), d.note.body if d.note else "",
-             {"collecting": "being collected", "set up": "yes"}.get(d.direct_debit, "")] for d in office.chase_list(db, today)]
-    return ["Name", "Owes (£)", "Days late", "Invoices", "Last chased", "Latest note", "Direct Debit"], rows
-
-
-def _payments(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
-    rows = [[p["date"], p["invoice"], p["contact"], p["method"], _pounds(p["amount"])] for p in finance.payment_lines(db, today - timedelta(days=400), today)]
-    return ["Date", "Invoice", "Name", "How", "Amount (£)"], rows
-
-
-def _members(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
-    rows = []
-    for member in db.scalars(select(Member).where((Member.active.is_(True)) | (Member.expiry_date >= today - timedelta(days=400))).order_by(Member.name)):
-        contact = db.scalar(select(Contact).where(Contact.member_id == member.id))
-        rows.append([member.name, member.membership_number or "", member.membership_type or "", "active" if member.active else (member.renewal_status or "lapsed"),
-                     _day(member.join_date), _day(member.expiry_date), office.money_status(db, contact, today).words])
-    return ["Name", "Number", "Membership", "Status", "Joined", "Until", "Money"], rows
-
-
-def _bookings(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
-    start = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
-    query = (select(EventTicket, Event, Contact).join(Event, Event.id == EventTicket.event_id).join(Contact, Contact.id == EventTicket.contact_id)
-             .where(Event.start_at >= start, EventTicket.status.in_(("held", "booked", "waiting"))).order_by(Event.start_at, EventTicket.id))
-    types = {t.id: t.name for t in db.scalars(select(TicketType))}
-    rows = []
-    for ticket, event, contact in db.execute(query):
-        invoice = db.get(Invoice, ticket.invoice_id) if ticket.invoice_id else None
-        paid = "free" if invoice is None else ("paid" if invoice.status == "paid" else "not paid yet")
-        rows.append([event.title, _day(event.start_at), ticket.holder_name or contact.name, types.get(ticket.ticket_type_id or 0, ""), ticket.status, paid])
-    return ["Event", "Date", "Name", "Ticket", "Place", "Paid"], rows
-
-
-def _census(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
-    counts = office.census(db, today)
-    rows = [[band, *[by_gender[g] for g, _ in office.GENDERS], sum(by_gender.values())] for band, by_gender in counts.by_band.items()]
-    return ["Age band", *[label for _, label in office.GENDERS], "Total"], rows
-
-
-def _money(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
-    debtors = office.chase_list(db, today)
-    fy_start = date(today.year if today.month >= int(finance.get_setting(db, "fy_start_month") or 1) else today.year - 1, int(finance.get_setting(db, "fy_start_month") or 1), 1)
-    received = finance.payment_lines(db, fy_start, today)
-    month = [p for p in received if p["date"] >= today.replace(day=1).isoformat()]
-    rows = [
-        ["Owed to the club", _pounds(sum(d.owed for d in debtors))],
-        ["Of which more than 30 days late", _pounds(sum(d.owed for d in debtors if d.days_overdue > 30))],
-        ["People who owe", len(debtors)],
-        ["Received this month", _pounds(sum(p["amount"] for p in month))],
-        [f"Received since {fy_start:%d %b %Y}", _pounds(sum(p["amount"] for p in received))],
-        ["Active members", db.scalar(select(func.count()).select_from(Member).where(Member.active.is_(True))) or 0],
-    ]
-    return ["What", "Amount"], rows
+def _when(value: datetime | None) -> str:
+    """A time with its UTC offset. SQLite hands back times without one; they were stored in UTC."""
+    if value is None:
+        return ""
+    return (value if value.tzinfo else value.replace(tzinfo=UTC)).isoformat(timespec="seconds")
 
 
 def _events(db: Session, today: date, base_url: str) -> tuple[list[str], list[list[Any]]]:
@@ -198,13 +139,6 @@ def _events(db: Session, today: date, base_url: str) -> tuple[list[str], list[li
     return ["Id", "Title", "Starts", "Ends", "Where", "Kind", "Member price (£)", "Visitor price (£)", "Places left", "Book at", "Website show"], rows
 
 
-def _when(value: datetime | None) -> str:
-    """A time with its UTC offset. SQLite hands back times without one; they were stored in UTC."""
-    if value is None:
-        return ""
-    return (value if value.tzinfo else value.replace(tzinfo=UTC)).isoformat(timespec="seconds")
-
-
 def _boats(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
     """Every boat, one row per boat, active or not (see Status). No spaces or berths: those stay in the office."""
     designs = {d.id: d for d in db.scalars(select(BoatDesign))}
@@ -218,8 +152,8 @@ def _boats(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
         club = bool(boat.is_club_boat)
         owner_member = None if club else (boat.owner_member_id or (owner.member_id if owner else None))
         rows.append([boat.id, boat.name, boat.boat_class or (design.name if design else ""), boat.sail_number or "", number or "", owner.name if owner and not club else ("club" if club else ""),
-                     boat.id, owner_member or "", "yes" if club else "no", boat.status or "", _day(boat.insurance_expiry), _when(boat.updated_at)])
-    return ["Id", "Name", "Class", "Sail number", "Portsmouth number", "Owner", "Boat id", "Owner member id", "Club boat", "Status", "Insurance until", "Updated"], rows
+                     boat.id, owner_member or "", "yes" if club else "no", boat.status or "", _day(boat.insurance_expiry), _when(boat.updated_at), boat.external_ref or ""])
+    return ["Id", "Name", "Class", "Sail number", "Portsmouth number", "Owner", "Boat id", "Owner member id", "Club boat", "Status", "Insurance until", "Updated", "External ref"], rows
 
 
 def _courses(db: Session, today: date, base_url: str) -> tuple[list[str], list[list[Any]]]:
@@ -243,7 +177,8 @@ def hats_label(role: UserRole | None) -> str:
 
 
 def _households(db: Session) -> dict[int, int]:
-    """Member id -> household id: the lowest member id among people linked as family or sharing an email address."""
+    """Member id -> household id: the lowest member id among people linked as family in the office. Each person has
+    their own email address now (Phase 2, D6), so this groups by family link only, never by a shared address."""
     parent: dict[tuple[str, int], tuple[str, int]] = {}
 
     def find(node: tuple[str, int]) -> tuple[str, int]:
@@ -256,16 +191,12 @@ def _households(db: Session) -> dict[int, int]:
     def join(a: tuple[str, int], b: tuple[str, int]) -> None:
         parent[find(a)] = find(b)
 
-    by_email: dict[str, tuple[str, int]] = {}
-    for member_id, email in db.execute(select(Member.id, Member.email)):
+    for member_id in db.scalars(select(Member.id)):
         find(("m", member_id))
-        if email:
-            join(("m", member_id), by_email.setdefault(email.strip().lower(), ("m", member_id)))
-    for contact_id, linked_member, email in db.execute(select(Contact.id, Contact.member_id, Contact.email)):
+    for contact_id, linked_member in db.execute(select(Contact.id, Contact.member_id)):
+        find(("c", contact_id))
         if linked_member:
             join(("c", contact_id), ("m", linked_member))
-        if email:
-            join(("c", contact_id), by_email.setdefault(email.strip().lower(), ("c", contact_id)))
     for a, b in db.execute(select(ContactRelation.from_contact_id, ContactRelation.to_contact_id)):
         join(("c", a), ("c", b))
     lowest: dict[tuple[str, int], int] = {}
@@ -290,8 +221,8 @@ def _site_members(db: Session, today: date) -> tuple[list[str], list[list[Any]]]
         updated = max((t if t.tzinfo else t.replace(tzinfo=UTC) for t in (member.updated_at, contact.updated_at if contact else None) if t is not None), default=None)
         rows.append([member.id, member.name, email, (contact.phone if contact else None) or "", member.membership_type or "",
                      "active" if member.active else (member.renewal_status or "lapsed"), _day(member.expiry_date), households.get(member.id, member.id),
-                     hats_label(roles.get(email.lower())) if email else "", _when(updated)])
-    return ["Member id", "Name", "Email", "Mobile", "Membership", "Status", "Until", "Household", "Hats", "Updated"], rows
+                     hats_label(roles.get(email.lower())) if email else "", _when(updated), member.committee_post or "", member.external_ref or ""])
+    return ["Member id", "Name", "Email", "Mobile", "Membership", "Status", "Until", "Household", "Hats", "Updated", "Committee post", "External ref"], rows
 
 
 def _directory(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
@@ -301,19 +232,14 @@ def _directory(db: Session, today: date) -> tuple[list[str], list[list[Any]]]:
     return ["Name", "Membership", "Email", "Phone"], rows
 
 
-def build(db: Session, name: str, today: date | None = None, base_url: str = "", client: str = "") -> dict[str, Any]:
+def build(db: Session, name: str, today: date | None = None, base_url: str = "") -> dict[str, Any]:
     today = today or date.today()
     base_url = (base_url or os.getenv("CLUB_BASE_URL", "")).rstrip("/")
-    makers = {"chase": _chase, "payments": _payments, "members": _members, "bookings": _bookings, "census": _census, "money": _money, "boats": _boats, "directory": _directory,
-              "siteMembers": _site_members}
+    makers = {"boats": _boats, "directory": _directory, "siteMembers": _site_members}
     if name == "events":
         columns, rows = _events(db, today, base_url)
     elif name == "courses":
         columns, rows = _courses(db, today, base_url)
     else:
         columns, rows = makers[name](db, today)
-    hidden = WITHHELD.get((name, client), set())
-    if hidden:
-        keep = [i for i, column in enumerate(columns) if column not in hidden]
-        columns, rows = [columns[i] for i in keep], [[row[i] for i in keep] for row in rows]
     return {"feed": name, "title": FEEDS[name][0], "generated_at": datetime.now(UTC).isoformat(timespec="seconds"), "columns": columns, "rows": rows}
